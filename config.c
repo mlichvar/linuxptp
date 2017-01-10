@@ -219,6 +219,7 @@ static struct config_enum nw_trans_enu[] = {
 	{ "L2",    TRANS_IEEE_802_3 },
 	{ "UDPv4", TRANS_UDP_IPV4   },
 	{ "UDPv6", TRANS_UDP_IPV6   },
+	{ "PN",    TRANS_PROFINET   },
 	{ NULL, 0 },
 };
 
@@ -364,6 +365,8 @@ struct config_item config_tab[] = {
 	PORT_ITEM_INT("spp", -1, -1, UINT8_MAX),
 	GLOB_ITEM_DBL("step_threshold", 0.0, 0.0, DBL_MAX),
 	GLOB_ITEM_INT("step_window", 0, 0, INT_MAX),
+	PORT_ITEM_STR("subdomainUUID",
+		      "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00"),
 	GLOB_ITEM_INT("summary_interval", 0, INT_MIN, INT_MAX),
 	PORT_ITEM_INT("syncReceiptTimeout", 0, 0, UINT8_MAX),
 	GLOB_ITEM_INT("tc_spanning_tree", 0, 0, 1),

@@ -54,6 +54,9 @@
 /* ETH_P_PRP is defined in if_ether.h from kernel 3.13 */
 #define ETH_P_PRP   0x88FB   /* IEC 62439-3 PRP/HSRv0  */
 #endif
+#ifndef ETH_P_PROFINET
+#define ETH_P_PROFINET 0x8892
+#endif
 
 #ifndef HAVE_ONESTEP_SYNC
 enum _missing_hwtstamp_tx_types {

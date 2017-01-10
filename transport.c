@@ -21,6 +21,7 @@
 
 #include "transport.h"
 #include "transport_private.h"
+#include "pn.h"
 #include "raw.h"
 #include "udp.h"
 #include "udp6.h"
@@ -117,7 +118,9 @@ struct transport *transport_create(struct config *cfg,
 		break;
 	case TRANS_DEVICENET:
 	case TRANS_CONTROLNET:
+		break;
 	case TRANS_PROFINET:
+		t = pn_transport_create();
 		break;
 	}
 	if (t) {
