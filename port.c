@@ -3770,6 +3770,18 @@ struct port *port_open(const char *phc_device,
 		pr_err("%s: spp needs at least PTPv2.1", p->log_name);
 		goto err_uc_service;
 	}
+	if (transport_type(p->trp) == TRANS_PROFINET) {
+		if (p->delayMechanism != DM_P2P) {
+			pr_err("%s: PN transport requires P2P mechanism",
+			       p->log_name);
+			goto err_uc_service;
+		}
+		if (!p->estimate_sync_timestamp) {
+			pr_err("%s: PN transport requires estimate_sync_timestamp",
+			       p->log_name);
+			goto err_uc_service;
+		}
+	}
 
 	/* Set fault timeouts to a default value */
 	for (i = 0; i < FT_CNT; i++) {
