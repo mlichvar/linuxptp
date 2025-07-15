@@ -355,6 +355,7 @@ struct config_item config_tab[] = {
 	GLOB_ITEM_STR("sa_file", NULL),
 	GLOB_ITEM_INT("sanity_freq_limit", 200000000, 0, INT_MAX),
 	PORT_ITEM_INT("serverOnly", 0, 0, 1),
+	GLOB_ITEM_INT("servo_enabled", 1, 0, 1),
 	GLOB_ITEM_INT("servo_num_offset_values", 10, 0, INT_MAX),
 	GLOB_ITEM_INT("servo_offset_threshold", 0, 0, INT_MAX),
 	GLOB_ITEM_STR("slave_event_monitor", ""),

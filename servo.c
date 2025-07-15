@@ -61,6 +61,8 @@ struct servo *servo_create(struct config *cfg, enum servo_type type,
 	if (!servo)
 		return NULL;
 
+	servo->enabled = config_get_int(cfg, NULL, "servo_enabled");
+
 	servo_step_threshold = config_get_double(cfg, NULL, "step_threshold");
 	if (servo_step_threshold > 0.0) {
 		servo->step_threshold = servo_step_threshold * NSEC_PER_SEC;
@@ -120,6 +122,11 @@ double servo_sample(struct servo *servo,
 		    enum servo_state *state)
 {
 	double r;
+
+	if (!servo->enabled) {
+		*state = SERVO_UNLOCKED;
+		return 0.0;
+	}
 
 	r = servo->sample(servo, offset, local_ts, weight, state);
 

@@ -25,6 +25,7 @@
 #include "servo.h"
 
 struct servo {
+	int enabled;
 	double max_frequency;
 	double step_threshold;
 	double first_step_threshold;
