@@ -91,6 +91,8 @@ struct servo *servo_create(struct config *cfg, enum servo_type type,
 	servo->num_offset_values = config_get_int(cfg, NULL, "servo_num_offset_values");
 	servo->curr_offset_values = servo->num_offset_values;
 
+	servo->state = SERVO_UNLOCKED;
+
 	return servo;
 }
 
@@ -124,11 +126,12 @@ double servo_sample(struct servo *servo,
 	double r;
 
 	if (!servo->enabled) {
-		*state = SERVO_UNLOCKED;
+		*state = servo->state = SERVO_UNLOCKED;
 		return 0.0;
 	}
 
 	r = servo->sample(servo, offset, local_ts, weight, state);
+	servo->state = *state;
 
 	switch (*state) {
 	case SERVO_UNLOCKED:

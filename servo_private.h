@@ -33,6 +33,7 @@ struct servo {
 	int64_t offset_threshold;
 	int num_offset_values;
 	int curr_offset_values;
+	enum servo_state state;
 
 	void (*destroy)(struct servo *servo);
 
