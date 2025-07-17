@@ -187,3 +187,23 @@ int servo_offset_threshold(struct servo *servo)
 {
 	return servo->offset_threshold;
 }
+
+void servo_get_properties(struct servo *servo, struct servo_properties_np *spn)
+{
+	spn->state = servo->state;
+	spn->flags = servo->enabled ? SERVO_ENABLED : 0;
+	spn->first_step_threshold = servo->first_step_threshold;
+	spn->step_threshold = servo->step_threshold;
+	spn->offset_threshold = servo->offset_threshold;
+	spn->num_offset_values = servo->num_offset_values;
+}
+
+void servo_set_properties(struct servo *servo, struct servo_properties_np *spn)
+{
+	/* The state field is ignored */
+	servo->enabled = spn->flags & SERVO_ENABLED ? 1 : 0;
+	servo->first_step_threshold = spn->first_step_threshold;
+	servo->step_threshold = spn->step_threshold;
+	servo->offset_threshold = spn->offset_threshold;
+	servo->num_offset_values = spn->num_offset_values;
+}

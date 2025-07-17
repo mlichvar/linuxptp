@@ -429,6 +429,7 @@ static int clock_management_fill_response(struct clock *c, struct port *p,
 	struct grandmaster_settings_np *gsn;
 	struct management_tlv_datum *mtd;
 	struct subscribe_events_np *sen;
+	struct servo_properties_np *spn;
 	struct management_tlv *tlv;
 	struct time_status_np *tsn;
 	struct tlv_extra *extra;
@@ -590,6 +591,14 @@ static int clock_management_fill_response(struct clock *c, struct port *p,
 		egpn->stepsRemoved = c->ext_gm_steps_removed;
 		datalen = sizeof(*egpn);
 		break;
+	case MID_SERVO_PROPERTIES_NP:
+		spn = (struct servo_properties_np *) tlv->data;
+		if (!c->servo) {
+			break;
+		}
+		servo_get_properties(c->servo, spn);
+		datalen = sizeof(*spn);
+		break;
 	default:
 		/* The caller should *not* respond to this message. */
 		tlv_extra_recycle(extra);
@@ -634,6 +643,7 @@ static int clock_management_set(struct clock *c, struct port *p,
 	struct grandmaster_settings_np *gsn;
 	struct management_tlv_datum *mtd;
 	struct subscribe_events_np *sen;
+	struct servo_properties_np *spn;
 	struct management_tlv *tlv;
 	int k, key, respond = 0;
 
@@ -725,6 +735,13 @@ static int clock_management_set(struct clock *c, struct port *p,
 		c->ext_gm_steps_removed = egpn->stepsRemoved;
 		*changed = 1;
 		respond = 1;
+		break;
+	case MID_SERVO_PROPERTIES_NP:
+		spn = (struct servo_properties_np *) tlv->data;
+		if (c->servo) {
+			servo_set_properties(c->servo, spn);
+			respond = 1;
+		}
 		break;
 	}
 	if (respond && !clock_management_get_response(c, p, id, req))

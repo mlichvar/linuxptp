@@ -174,6 +174,7 @@ static int mgt_post_recv(struct management_tlv *m, uint16_t data_len,
 	struct mgmt_clock_description *cd;
 	struct unicast_master_entry *ume;
 	struct subscribe_events_np *sen;
+	struct servo_properties_np *spn;
 	struct port_corrections_np *pcn;
 	struct port_properties_np *ppn;
 	struct port_hwclock_np *phn;
@@ -506,6 +507,16 @@ static int mgt_post_recv(struct management_tlv *m, uint16_t data_len,
 		net2host64(pcn->ingressLatency);
 		net2host64(pcn->delayAsymmetry);
 		break;
+	case MID_SERVO_PROPERTIES_NP:
+		if (data_len != sizeof(struct servo_properties_np))
+			goto bad_length;
+		spn = (struct servo_properties_np *) m->data;
+		NTOHS(spn->flags);
+		NTOHL(spn->num_offset_values);
+		net2host64(spn->offset_threshold);
+		net2host64(spn->first_step_threshold);
+		net2host64(spn->step_threshold);
+		break;
 	case MID_SAVE_IN_NON_VOLATILE_STORAGE:
 	case MID_RESET_NON_VOLATILE_STORAGE:
 	case MID_INITIALIZE:
@@ -538,6 +549,7 @@ static void mgt_pre_send(struct management_tlv *m, struct tlv_extra *extra)
 	struct mgmt_clock_description *cd;
 	struct unicast_master_entry *ume;
 	struct subscribe_events_np *sen;
+	struct servo_properties_np *spn;
 	struct port_corrections_np *pcn;
 	struct port_properties_np *ppn;
 	struct port_hwclock_np *phn;
@@ -715,6 +727,14 @@ static void mgt_pre_send(struct management_tlv *m, struct tlv_extra *extra)
 		host2net64(pcn->egressLatency);
 		host2net64(pcn->ingressLatency);
 		host2net64(pcn->delayAsymmetry);
+		break;
+	case MID_SERVO_PROPERTIES_NP:
+		spn = (struct servo_properties_np *)m->data;
+		HTONS(spn->flags);
+		HTONL(spn->num_offset_values);
+		host2net64(spn->offset_threshold);
+		host2net64(spn->first_step_threshold);
+		host2net64(spn->step_threshold);
 		break;
 	}
 }

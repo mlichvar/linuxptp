@@ -22,6 +22,8 @@
 
 #include <stdint.h>
 
+#include "tlv.h"
+
 struct config;
 
 /** Opaque type */
@@ -136,5 +138,19 @@ void servo_leap(struct servo *servo, int leap);
  * @return        The offset threshold set by the user.
  */
 int servo_offset_threshold(struct servo *servo);
+
+/**
+ * Return current properties of a servo instance.
+ * @param servo   Pointer to a servo obtained via @ref servo_create().
+ * @param spn     Pointer for the returned properties.
+ */
+void servo_get_properties(struct servo *servo, struct servo_properties_np *spn);
+
+/**
+ * Modify properties of a servo instance.
+ * @param servo   Pointer to a servo obtained via @ref servo_create().
+ * @param spn     Pointer of the new properties.
+ */
+void servo_set_properties(struct servo *servo, struct servo_properties_np *spn);
 
 #endif

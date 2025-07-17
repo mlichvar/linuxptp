@@ -162,6 +162,7 @@ struct management_id idtab[] = {
 	{ "POWER_PROFILE_SETTINGS_NP", MID_POWER_PROFILE_SETTINGS_NP, do_set_action },
 	{ "CMLDS_INFO_NP", MID_CMLDS_INFO_NP, do_get_action },
 	{ "PORT_CORRECTIONS_NP", MID_PORT_CORRECTIONS_NP, do_set_action },
+	{ "SERVO_PROPERTIES_NP", MID_SERVO_PROPERTIES_NP, do_set_action },
 };
 
 static void do_get_action(struct pmc *pmc, int action, int index, char *str)
@@ -182,6 +183,7 @@ static void do_set_action(struct pmc *pmc, int action, int index, char *str)
 	struct grandmaster_settings_np gsn;
 	struct management_tlv_datum mtd;
 	struct subscribe_events_np sen;
+	struct servo_properties_np spn;
 	struct port_corrections_np pcn;
 	struct port_ds_np pnp;
 	char onoff_port_state[4] = "off";
@@ -437,6 +439,29 @@ static void do_set_action(struct pmc *pmc, int action, int index, char *str)
 		pcn.ingressLatency <<= 16;
 		pcn.delayAsymmetry <<= 16;
 		pmc_send_set_action(pmc, code, &pcn, sizeof(pcn));
+		break;
+	case MID_SERVO_PROPERTIES_NP:
+		cnt = sscanf(str, " %*s %*s "
+			     "state                %hhu "
+			     "enabled              %d "
+			     "num_offset_values    %"SCNu32" "
+			     "offset_threshold     %"PRIu64" "
+			     "first_step_threshold %"PRIu64" "
+			     "step_threshold       %"PRIu64" ",
+			     &spn.state,
+			     &enable,
+			     &spn.num_offset_values,
+			     &spn.offset_threshold,
+			     &spn.first_step_threshold,
+			     &spn.step_threshold);
+		if (cnt != 6) {
+			fprintf(stderr, "%s SET needs 6 values\n",
+				idtab[index].name);
+			break;
+		}
+		spn.flags = enable ? SERVO_ENABLED : 0;
+		spn.reserved = 0;
+		pmc_send_set_action(pmc, code, &spn, sizeof(spn));
 		break;
 	}
 }
