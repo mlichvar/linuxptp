@@ -871,15 +871,19 @@ static int add_ptp_source(struct ptp_domain *source,
 		interfaces = (char **)parray_new();
 		parray_append((void ***)&interfaces, source->interfaces[i]);
 
-		/* merge all interfaces sharing PHC to one ptp4l command */
 		if (phcs[i] >= 0) {
+			/*
+			 * if vclocks are disabled, all interfaces sharing a
+			 * PHC need to be merged in one ptp4l command
+			 */
 			for (j = i + 1; j < num_interfaces; j++) {
-				if (phcs[i] == phcs[j]) {
-					parray_append((void ***)&interfaces,
-						      source->interfaces[j]);
-					/* mark the interface as used */
-					phcs[j] = -2;
-				}
+				if (config->use_vclocks || phcs[i] != phcs[j])
+					continue;
+
+				parray_append((void ***)&interfaces,
+					      source->interfaces[j]);
+				/* mark the interface as used */
+				phcs[j] = -2;
 			}
 
 			if (config->use_vclocks) {
