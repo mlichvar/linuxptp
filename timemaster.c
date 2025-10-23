@@ -794,8 +794,8 @@ static int add_ptp_source(struct ptp_domain *source,
 {
 	struct config_file *config_file;
 	char **command, *uds_path, *uds_path2, **interfaces, *message_tag;
+	int i, j, num_interfaces, *phc, *phcs, *groups, hw_ts, sw_ts;
 	char ts_interface[IF_NAMESIZE], vclock_index[20];
-	int i, j, num_interfaces, *phc, *phcs, hw_ts, sw_ts;
 	struct sk_ts_info ts_info;
 
 	pr_debug("adding PTP domain %d", source->domain);
@@ -814,8 +814,10 @@ static int add_ptp_source(struct ptp_domain *source,
 
 	/* get PHCs used by specified interfaces */
 	phcs = xmalloc(num_interfaces * sizeof(int));
+	groups = xmalloc(num_interfaces * sizeof(int));
 	for (i = 0; i < num_interfaces; i++) {
 		phcs[i] = -1;
+		groups[i] = -1;
 
 		/*
 		 * if it is a bonded interface, use the name of the active
@@ -865,8 +867,10 @@ static int add_ptp_source(struct ptp_domain *source,
 
 	for (i = 0; i < num_interfaces; i++) {
 		/* skip if already used by ptp4l in this domain */
-		if (phcs[i] == -2)
+		if (groups[i] >= 0)
 			continue;
+
+		groups[i] = i;
 
 		interfaces = (char **)parray_new();
 		parray_append((void ***)&interfaces, source->interfaces[i]);
@@ -883,7 +887,7 @@ static int add_ptp_source(struct ptp_domain *source,
 				parray_append((void ***)&interfaces,
 					      source->interfaces[j]);
 				/* mark the interface as used */
-				phcs[j] = -2;
+				groups[j] = i;
 			}
 
 			if (config->use_vclocks) {
@@ -988,6 +992,7 @@ static int add_ptp_source(struct ptp_domain *source,
 	}
 
 	free(phcs);
+	free(groups);
 
 	return 0;
 }
