@@ -644,23 +644,14 @@ static struct timemaster_config *config_parse(char *path)
 }
 
 static char **get_ptp4l_command(struct program_config *config,
-				struct config_file *file, char **interfaces,
-				char *phc_index, int hw_ts)
+				struct config_file *file)
 {
 	char **command = (char **)parray_new();
 
 	parray_append((void ***)&command, xstrdup(config->path));
 	extend_string_array(&command, config->options);
 	parray_extend((void ***)&command,
-		      xstrdup("-f"), xstrdup(file->path),
-		      xstrdup(hw_ts ? "-H" : "-S"), NULL);
-	if (phc_index && phc_index[0])
-		parray_extend((void ***)&command,
-			      xstrdup("--phc_index"), xstrdup(phc_index), NULL);
-
-	for (; *interfaces; interfaces++)
-		parray_extend((void ***)&command,
-			      xstrdup("-i"), xstrdup(*interfaces), NULL);
+		      xstrdup("-f"), xstrdup(file->path), NULL);
 
 	return command;
 }
@@ -795,7 +786,7 @@ static int add_ptp_source(struct ptp_domain *source,
 	struct config_file *config_file;
 	char **command, *uds_path, *uds_path2, **interfaces, *message_tag;
 	int i, j, num_interfaces, *phc, *phcs, *groups, hw_ts, sw_ts;
-	char ts_interface[IF_NAMESIZE], vclock_index[20];
+	char ts_interface[IF_NAMESIZE];
 	struct sk_ts_info ts_info;
 
 	pr_debug("adding PTP domain %d", source->domain);
@@ -890,17 +881,11 @@ static int add_ptp_source(struct ptp_domain *source,
 				groups[j] = i;
 			}
 
-			if (config->use_vclocks) {
-				/* request new vclock for the PHC */
-				int vclock = add_vclock(script, phcs[i]);
-				snprintf(vclock_index, sizeof(vclock_index),
-					 "%%PHC%d-%d%%", phcs[i], vclock);
-			} else {
+			if (!config->use_vclocks) {
 				/* don't use this PHC in other sources */
 				phc = xmalloc(sizeof(int));
 				*phc = phcs[i];
 				parray_append((void ***)allocated_phcs, phc);
-				vclock_index[0] = '\0';
 			}
 		}
 
@@ -939,11 +924,12 @@ static int add_ptp_source(struct ptp_domain *source,
 			string_appendf(&config_file->content,
 				       "user %s\n", config->user);
 
+		command = get_ptp4l_command(&config->ptp4l, config_file);
+
 		if (phcs[i] >= 0) {
-			/* HW time stamping */
-			command = get_ptp4l_command(&config->ptp4l, config_file,
-						    interfaces,
-						    vclock_index, 1);
+			string_appendf(&config_file->content,
+				       "time_stamping hardware\n");
+
 			add_command(command, *command_group, script);
 
 			command = get_phc2sys_command(&config->phc2sys, config,
@@ -953,9 +939,9 @@ static int add_ptp_source(struct ptp_domain *source,
 						      message_tag);
 			add_command(command, (*command_group)++, script);
 		} else {
-			/* SW time stamping */
-			command = get_ptp4l_command(&config->ptp4l, config_file,
-						    interfaces, NULL, 0);
+			string_appendf(&config_file->content,
+				       "time_stamping software\n");
+
 			add_command(command, (*command_group)++, script);
 
 			switch (config->ntp_program) {
@@ -974,6 +960,21 @@ static int add_ptp_source(struct ptp_domain *source,
 					       config->first_shm_segment);
 				break;
 			}
+		}
+
+		if (phcs[i] >= 0 && config->use_vclocks) {
+			/* use a new vclock created for the PHC */
+			string_appendf(&config_file->content,
+				       "phc_index %%PHC%d-%d%%\n", phcs[i],
+				       add_vclock(script, phcs[i]));
+		}
+
+		for (j = 0; j < num_interfaces; j++) {
+			if (groups[j] != i)
+				continue;
+
+			string_appendf(&config_file->content,
+				       "[%s]\n", source->interfaces[j]);
 		}
 
 		parray_append((void ***)&script->configs, config_file);
@@ -1307,25 +1308,31 @@ static int get_vclock_index(int pindex, int vclock)
 	return vindex;
 }
 
-static int translate_vclock_options(char ***commands)
+static int translate_vclock_options(struct config_file **configs)
 {
-	int n, pindex, vclock, vindex, blen;
-	char **command;
+	int n, pindex, vclock, vindex, plen;
+	char *s;
 
-	for (; *commands; commands++) {
-		for (command = *commands; *command; command++) {
-			if (sscanf(*command, "%%PHC%d-%d%%%n",
-				   &pindex, &vclock, &n) != 2 ||
-			    n != strlen(*command))
+	for (; *configs; configs++) {
+		for (s = (*configs)->content; *s != '\0'; s += n) {
+			s = strstr(s + 1, "%PHC");
+			if (!s)
+				break;
+
+			if (sscanf(s, "%%PHC%d-%d%%%n",
+				   &pindex, &vclock, &n) != 2)
 				continue;
+
 			vindex = get_vclock_index(pindex, vclock);
 			if (vindex < 0)
 				return 1;
 
 			/* overwrite the string with the vclock PHC index */
-			blen = strlen(*command) + 1;
-			if (snprintf(*command, blen, "%d", vindex) >= blen)
+			plen = snprintf(s, n, "%d", vindex);
+			if (plen >= n)
 				return 1;
+			while (plen < n)
+				s[plen++] = ' ';
 		}
 	}
 
@@ -1353,13 +1360,13 @@ static int script_run(struct script *script)
 	create_uds_directory(path, script->rundir_owner);
 	free(path);
 
-	if (create_config_files(script->configs))
-		return 1;
-
 	if (create_vclocks(script->vclocks))
 		return 1;
 
-	if (translate_vclock_options(script->commands))
+	if (translate_vclock_options(script->configs))
+		return 1;
+
+	if (create_config_files(script->configs))
 		return 1;
 
 	sigemptyset(&mask);
