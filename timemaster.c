@@ -54,6 +54,7 @@
 #define DEFAULT_NTP_MINPOLL 6
 #define DEFAULT_NTP_MAXPOLL 10
 #define DEFAULT_PTP_DELAY 1e-4
+#define DEFAULT_PTP_MERGE 0
 #define DEFAULT_PTP_NTP_POLL 2
 #define DEFAULT_PTP_PHC2SYS_POLL 0
 
@@ -86,6 +87,7 @@ struct ntp_server {
 
 struct ptp_domain {
 	int domain;
+	int merge;
 	int ntp_poll;
 	int phc2sys_poll;
 	double delay;
@@ -314,6 +316,7 @@ static struct source *source_ptp_parse(char *parameter, char **settings)
 	source = xmalloc(sizeof(*source));
 	source->type = PTP_DOMAIN;
 	source->ptp.delay = DEFAULT_PTP_DELAY;
+	source->ptp.merge = DEFAULT_PTP_MERGE;
 	source->ptp.ntp_poll = DEFAULT_PTP_NTP_POLL;
 	source->ptp.phc2sys_poll = DEFAULT_PTP_PHC2SYS_POLL;
 	source->ptp.interfaces = (char **)parray_new();
@@ -329,6 +332,8 @@ static struct source *source_ptp_parse(char *parameter, char **settings)
 		parse_setting(*settings, &name, &value);
 		if (!strcasecmp(name, "delay")) {
 			r = parse_double(value, &source->ptp.delay);
+		} else if (!strcasecmp(name, "merge")) {
+			r = parse_int(value, &source->ptp.merge);
 		} else if (!strcasecmp(name, "ntp_poll")) {
 			r = parse_int(value, &source->ptp.ntp_poll);
 		} else if (!strcasecmp(name, "phc2sys_poll")) {
@@ -672,7 +677,7 @@ static char **get_phc2sys_command(struct program_config *config,
 		      xstrdup("-z"), xstrdup(uds_path),
 		      xstrdup("-t"), xstrdup(message_tag),
 		      xstrdup("-n"), string_newf("%d", domain),
-		      xstrdup("-E"), NULL);
+		      xstrdup("-e"), NULL);
 
 	switch (tconfig->ntp_program) {
 	case CHRONYD:
@@ -784,8 +789,8 @@ static int add_ptp_source(struct ptp_domain *source,
 			  char **ntp_config, struct script *script)
 {
 	struct config_file *config_file;
+	int i, j, num_interfaces, *phc, *phcs, *groups, hw_ts, sw_ts, jbod;
 	char **command, *uds_path, *uds_path2, **interfaces, *message_tag;
-	int i, j, num_interfaces, *phc, *phcs, *groups, hw_ts, sw_ts;
 	char ts_interface[IF_NAMESIZE];
 	struct sk_ts_info ts_info;
 
@@ -865,28 +870,35 @@ static int add_ptp_source(struct ptp_domain *source,
 
 		interfaces = (char **)parray_new();
 		parray_append((void ***)&interfaces, source->interfaces[i]);
+		jbod = 0;
 
-		if (phcs[i] >= 0) {
-			/*
-			 * if vclocks are disabled, all interfaces sharing a
-			 * PHC need to be merged in one ptp4l command
-			 */
-			for (j = i + 1; j < num_interfaces; j++) {
-				if (config->use_vclocks || phcs[i] != phcs[j])
-					continue;
+		/*
+		 * select interfaces for a single ptp4l instance considering:
+		 * - preference to mix is set by the merge option
+		 * - interfaces sharing the same PHC need to be together unless
+		 *   vclocks are enabled
+		 * - one physical PHC can have multiple vclocks
+		 * - interfaces using SW timestamping can be alone or together
+		 * - mixing of HW and SW timestamping is not possible
+		 */
+		for (j = i + 1; j < num_interfaces; j++) {
+			if (groups[j] >= 0)
+				continue;
 
-				parray_append((void ***)&interfaces,
-					      source->interfaces[j]);
-				/* mark the interface as used */
-				groups[j] = i;
-			}
+			if ((phcs[i] >= 0) != (phcs[j] >= 0))
+				continue;
 
-			if (!config->use_vclocks) {
-				/* don't use this PHC in other sources */
-				phc = xmalloc(sizeof(int));
-				*phc = phcs[i];
-				parray_append((void ***)allocated_phcs, phc);
-			}
+			if (!source->merge &&
+			    (config->use_vclocks || phcs[i] != phcs[j]))
+				continue;
+
+			if (phcs[i] >= 0 && phcs[i] != phcs[j])
+				jbod = 1;
+
+			parray_append((void ***)&interfaces,
+				      source->interfaces[j]);
+			/* mark the interface as used by this group */
+			groups[j] = i;
 		}
 
 		uds_path = string_newf("%s/ptp4l.%d.socket",
@@ -962,12 +974,9 @@ static int add_ptp_source(struct ptp_domain *source,
 			}
 		}
 
-		if (phcs[i] >= 0 && config->use_vclocks) {
-			/* use a new vclock created for the PHC */
+		if (jbod)
 			string_appendf(&config_file->content,
-				       "phc_index %%PHC%d-%d%%\n", phcs[i],
-				       add_vclock(script, phcs[i]));
-		}
+				       "boundary_clock_jbod 1\n");
 
 		for (j = 0; j < num_interfaces; j++) {
 			if (groups[j] != i)
@@ -975,6 +984,22 @@ static int add_ptp_source(struct ptp_domain *source,
 
 			string_appendf(&config_file->content,
 				       "[%s]\n", source->interfaces[j]);
+
+			if (phcs[j] < 0)
+			       continue;
+
+			if (config->use_vclocks) {
+				/* add new vclock for each PHC in the group */
+				string_appendf(&config_file->content,
+					       "phc_index %%PHC%d-%d%%\n",
+					       phcs[j],
+					       add_vclock(script, phcs[j]));
+			} else {
+				/* don't use this PHC in other sources */
+				phc = xmalloc(sizeof(int));
+				*phc = phcs[j];
+				parray_append((void ***)allocated_phcs, phc);
+			}
 		}
 
 		parray_append((void ***)&script->configs, config_file);

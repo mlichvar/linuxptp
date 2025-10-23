@@ -159,6 +159,15 @@ specified also in other PTP domains and virtual clocks are disabled, only the
 \fBptp4l\fR instance from the first PTP domain will be using HW time stamping.
 
 .TP
+.B merge
+Enable or disable a preference to merge interfaces of the domain in a single
+ptp4l instance in order to provide a single source to the NTP implementation
+and leave the selection to PTP. Note that interfaces using SW timestamping
+cannot be merged with interfaces using HW timestamping, and interfaces sharing
+a PHC will always be merged if the \fBuse_vclocks\fR option is disabled.
+The default value is 0 (disabled).
+
+.TP
 .B ntp_poll
 Specify the polling interval of the SOCK/SHM reference clock reading samples
 from \fBptp4l\fR or \fBphc2sys\fR. It's specified as a power of two in seconds.
