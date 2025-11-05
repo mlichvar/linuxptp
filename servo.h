@@ -33,6 +33,7 @@ struct servo;
  * Defines the available servo cores
  */
 enum servo_type {
+	CLOCK_SERVO_NONE = -1, /* no servo type explicitly set */
 	CLOCK_SERVO_PI,
 	CLOCK_SERVO_LINREG,
 	CLOCK_SERVO_NTPSHM,

@@ -1,4 +1,4 @@
-.TH PHC2SYS 8 "March 2024" "linuxptp"
+.TH PHC2SYS 8 "November 2025" "linuxptp"
 .SH NAME
 phc2sys \- synchronize two or more clocks
 
@@ -140,6 +140,17 @@ controller, linreg for an adaptive controller using linear regression, and
 ntpshm and refclock_sock for the NTP SHM and chrony SOCK reference clocks
 respectively to allow another process to synchronize the local clock.
 The default is pi.
+.TP
+.BI \-e " servo"
+Specify which clock servo should be used for the realtime or auxiliary system
+clock. Valid values are the same as for the option
+.B \-E
+above.
+If not specified, the default is to follow the value of
+.B \-E
+(
+.B clock_servo
+).
 .TP
 .BI \-P " kp"
 Specify the proportional constant of the PI controller. The default is 0.7.
@@ -304,6 +315,23 @@ is set to the domain number), and "nullf" for a servo that always dials
 frequency offset zero (for use in SyncE nodes). The default is "pi."
 Same as option
 .B \-E
+(see above).
+
+.TP
+.B system_clock_servo
+The servo which is used to synchronize the realtime or auxiliary system clock,
+to allow for a different servo to be used for this clock, such as
+reporting the system clock offset to ntpd or chronyd while PHC clocks
+are synchronized with a PI servo. Valid values are the same as for
+the above option
+.B "clock_servo"
+and the default is to follow the value of
+.B "clock_servo"
+( option
+.B \-E
+).
+Same as option
+.B \-e
 (see above).
 
 .TP

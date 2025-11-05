@@ -105,6 +105,7 @@ struct domain {
 	unsigned int stats_max_count;
 	int sanity_freq_limit;
 	enum servo_type servo_type;
+	enum servo_type system_servo_type;
 	int phc_readings;
 	double phc_interval;
 	int forced_sync_offset;
@@ -148,8 +149,8 @@ static struct servo *servo_add(struct domain *domain,
 			return NULL;
 		}
 	}
-
-	servo = servo_create(phc2sys_config, domain->servo_type,
+	servo = servo_create(phc2sys_config, is_sys_clock(clock->clkid) ?
+			     domain->system_servo_type : domain->servo_type,
 			     -ppb, max_ppb, 0);
 	if (!servo) {
 		pr_err("Failed to create servo");
@@ -1240,6 +1241,9 @@ static void usage(char *progname)
 int main(int argc, char *argv[])
 {
 	char *config = NULL, *progname, *src_name = NULL;
+	const char *sys_servo_cfgkey =  "system_clock_servo";
+	const char *phc_servo_cfgkey =  "clock_servo";
+	const char *servo_cfgkey = NULL;
 	const char *dst_names[MAX_DST_CLOCKS], *uds_remotes[MAX_DOMAINS];
 	const char *auto_sys_clock = "CLOCK_REALTIME";
 	char uds_local[MAX_IFNAME_SIZE + 1];
@@ -1276,8 +1280,11 @@ int main(int argc, char *argv[])
 	progname = strrchr(argv[0], '/');
 	progname = progname ? 1+progname : argv[0];
 	while (EOF != (c = getopt_long(argc, argv,
-				"arC:c:d:f:s:E:P:I:S:F:R:N:O:L:M:i:u:wn:xz:l:t:mqvh",
+				"arC:c:d:f:s:E:e:P:I:S:F:R:N:O:L:M:i:u:wn:xz:l:t:mqvh",
 				opts, &index))) {
+
+		servo_cfgkey = phc_servo_cfgkey;
+
 		switch (c) {
 		case 0:
 			if (config_parse_option(cfg, opts[index].name, optarg)) {
@@ -1329,22 +1336,27 @@ int main(int argc, char *argv[])
 		case 's':
 			src_name = optarg;
 			break;
+		case 'e':
+			servo_cfgkey = sys_servo_cfgkey;
+            /* fallthrough */
 		case 'E':
 			if (!strcasecmp(optarg, "pi")) {
-				config_set_int(cfg, "clock_servo",
+				config_set_int(cfg, servo_cfgkey,
 					       CLOCK_SERVO_PI);
 			} else if (!strcasecmp(optarg, "linreg")) {
-				config_set_int(cfg, "clock_servo",
+				config_set_int(cfg, servo_cfgkey,
 					       CLOCK_SERVO_LINREG);
 			} else if (!strcasecmp(optarg, "ntpshm")) {
-				config_set_int(cfg, "clock_servo",
+				config_set_int(cfg, servo_cfgkey,
 					       CLOCK_SERVO_NTPSHM);
 			} else if (!strcasecmp(optarg, "refclock_sock")) {
-				config_set_int(cfg, "clock_servo",
+				config_set_int(cfg, servo_cfgkey,
 					       CLOCK_SERVO_REFCLOCK_SOCK);
 			} else {
 				fprintf(stderr,
-					"invalid servo name %s\n", optarg);
+					"invalid %s servo name: '%s'\n",
+					c == 'e' ? "system" : "PHC",
+					optarg);
 				goto end;
 			}
 			break;
@@ -1507,7 +1519,13 @@ int main(int argc, char *argv[])
 
 	settings.free_running = config_get_int(cfg, NULL, "free_running");
 	settings.servo_type = config_get_int(cfg, NULL, "clock_servo");
-	if (settings.free_running || settings.servo_type == CLOCK_SERVO_NTPSHM) {
+	settings.system_servo_type = config_get_int(cfg, NULL, "system_clock_servo");
+	if (settings.system_servo_type == CLOCK_SERVO_NONE) {
+		config_set_int(cfg, "system_clock_servo", settings.servo_type);
+		settings.system_servo_type = settings.servo_type;
+	}
+	if (settings.free_running || settings.servo_type == CLOCK_SERVO_NTPSHM ||
+	    settings.system_servo_type == CLOCK_SERVO_NTPSHM) {
 		config_set_int(cfg, "kernel_leap", 0);
 		config_set_int(cfg, "sanity_freq_limit", 0);
 	}

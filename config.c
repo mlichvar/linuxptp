@@ -366,6 +366,7 @@ struct config_item config_tab[] = {
 	GLOB_ITEM_INT("step_window", 0, 0, INT_MAX),
 	GLOB_ITEM_INT("summary_interval", 0, INT_MIN, INT_MAX),
 	PORT_ITEM_INT("syncReceiptTimeout", 0, 0, UINT8_MAX),
+	GLOB_ITEM_ENU("system_clock_servo", CLOCK_SERVO_NONE, clock_servo_enu),
 	GLOB_ITEM_INT("tc_spanning_tree", 0, 0, 1),
 	GLOB_ITEM_INT("timeSource", INTERNAL_OSCILLATOR, 0x10, 0xfe),
 	GLOB_ITEM_ENU("time_stamping", TS_HARDWARE, timestamping_enu),
