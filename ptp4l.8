@@ -256,6 +256,12 @@ value will be added to egress time stamps obtained from the hardware.
 The default is 0.
 
 .TP
+.B estimate_sync_timestamp
+Enables ptp4l to provide in two-step sync messages an estimated transmit time
+stamp instead of zero.
+The default is 0 (disabled).
+
+.TP
 .B fault_badpeernet_interval
 The time in seconds between the detection of a peer network misconfiguration
 and the fault being reset. The port is disabled for the duration of the

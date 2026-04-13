@@ -1872,6 +1872,17 @@ int port_tx_sync(struct port *p, struct address *dst, uint16_t sequence_id)
 
 	if (p->timestamping != TS_ONESTEP && p->timestamping != TS_P2P1STEP) {
 		msg->header.flagField[0] |= TWO_STEP;
+		if (p->estimate_sync_timestamp) {
+			tmv_t estxtm;
+
+			/* Estimate the transmit time. */
+			if (clock_read_time(p->clock, &estxtm)) {
+				err = -1;
+				goto out;
+			}
+
+			msg->sync.originTimestamp = tmv_to_Timestamp(estxtm);
+		}
 	}
 
 	if (dst) {
@@ -3626,6 +3637,8 @@ struct port *port_open(const char *phc_device,
 	if (p->phc_index < 0)
 		p->phc_index = phc_index;
 	p->jbod = config_get_int(cfg, interface_name(interface), "boundary_clock_jbod");
+	p->estimate_sync_timestamp =
+		config_get_int(cfg, interface_name(interface), "estimate_sync_timestamp");
 	p->master_only = config_get_int(cfg, interface_name(interface), "serverOnly");
 	p->bmca = config_get_int(cfg, interface_name(interface), "BMCA");
 	p->trp = transport_create(cfg, config_get_int(cfg,

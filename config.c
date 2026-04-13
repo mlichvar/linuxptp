@@ -284,6 +284,7 @@ struct config_item config_tab[] = {
 	GLOB_ITEM_INT("dscp_general", 0, 0, 63),
 	GLOB_ITEM_INT("domainNumber", 0, 0, 255),
 	PORT_ITEM_INT("egressLatency", 0, INT_MIN, INT_MAX),
+	PORT_ITEM_INT("estimate_sync_timestamp", 0, 0, 1),
 	PORT_ITEM_INT("fault_badpeernet_interval", 16, INT32_MIN, INT32_MAX),
 	PORT_ITEM_INT("fault_reset_interval", 4, INT8_MIN, INT8_MAX),
 	GLOB_ITEM_DBL("first_step_threshold", 0.00002, 0.0, DBL_MAX),

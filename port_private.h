@@ -77,6 +77,7 @@ struct port {
 	enum fsm_event (*event)(struct port *p, int fd_index);
 
 	int jbod;
+	int estimate_sync_timestamp;
 	struct foreign_clock *best;
 	enum syfu_state syfu;
 	struct ptp_message *last_syncfup;

@@ -450,6 +450,7 @@ int msg_pre_send(struct ptp_message *m)
 
 	switch (type) {
 	case SYNC:
+		timestamp_pre_send(&m->sync.originTimestamp);
 		break;
 	case DELAY_REQ:
 		clock_gettime(CLOCK_MONOTONIC, &m->ts.host);
