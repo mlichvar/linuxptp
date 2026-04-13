@@ -319,6 +319,15 @@ UInteger16 clock_steps_removed(struct clock *c);
 struct tsproc *clock_get_tsproc(struct clock *c);
 
 /**
+ * Read the clock and return the timestamp as a tmv_t.
+ *
+ * @param c  The clock instance.
+ * @param ts Pointer where to save the timestamp.
+ * @return   Zero on success, negative error code otherwise.
+ */
+int clock_read_time(struct clock *c, tmv_t *ts);
+
+/**
  * Switch to a new PTP Hardware Clock, for use with the "jbod" mode.
  * @param c          The clock instance.
  * @param phc_index  The index of the PHC device to use.

@@ -2010,6 +2010,20 @@ struct tsproc *clock_get_tsproc(struct clock *c)
 	return c->tsproc;
 }
 
+int clock_read_time(struct clock *c, tmv_t *ts)
+{
+	struct timespec tspec;
+
+	if (clock_gettime(c->clkid, &tspec) < 0) {
+		pr_err("failed to read clock: %m");
+		return -errno;
+	}
+
+	*ts = timespec_to_tmv(tspec);
+
+	return 0;
+}
+
 int clock_switch_phc(struct clock *c, int phc_index)
 {
 	struct servo *servo;
