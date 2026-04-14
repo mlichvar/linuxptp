@@ -273,7 +273,7 @@ static int pn_open(struct transport *t, struct interface *iface,
 	char *str;
 
 	name = interface_label(iface);
-	str = config_get_string(t->cfg, name, "subdomainUUID");
+	str = config_get_string(t->cfg, name, "rh_subdomainUUID");
 	if (parse_subdomain(str, pn->subdomain)) {
 		pr_err("invalid subdomainUUID %s", str);
 		return -1;

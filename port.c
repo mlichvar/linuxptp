@@ -3638,7 +3638,7 @@ struct port *port_open(const char *phc_device,
 		p->phc_index = phc_index;
 	p->jbod = config_get_int(cfg, interface_name(interface), "boundary_clock_jbod");
 	p->estimate_sync_timestamp =
-		config_get_int(cfg, interface_name(interface), "estimate_sync_timestamp");
+		config_get_int(cfg, interface_name(interface), "rh_estimate_sync_timestamp");
 	p->master_only = config_get_int(cfg, interface_name(interface), "serverOnly");
 	p->bmca = config_get_int(cfg, interface_name(interface), "BMCA");
 	p->trp = transport_create(cfg, config_get_int(cfg,

@@ -256,7 +256,10 @@ value will be added to egress time stamps obtained from the hardware.
 The default is 0.
 
 .TP
-.B estimate_sync_timestamp
+.B rh_estimate_sync_timestamp
+This is a RHEL-specific experimental option which can be renamed,
+removed, or the functionality changed, in a future minor update.
+
 Enables ptp4l to provide in two-step sync messages an estimated transmit time
 stamp instead of zero. The PN transport needs this option to be enabled.
 The default is 0 (disabled).
@@ -381,7 +384,8 @@ greater than this value the port is marked as not 802.1AS capable.
 .TP
 .B network_transport
 Select the network transport. Possible values are UDPv4, UDPv6, L2 (Ethernet),
-and PN (PROFINET).
+and PN (PROFINET). The PN transport is experimental in RHEL and it can be
+removed or changed in a future minor update.
 The default is UDPv4.
 
 .TP
@@ -555,7 +559,10 @@ is useful with larger network jitters (e.g. software time stamping).
 The default is filter.
 
 .TP
-.B subdomainUUID
+.B rh_subdomainUUID
+This is a RHEL-specific experimental option which can be renamed,
+removed, or the functionality changed, in a future minor update.
+
 Specifies the UUID of the PTCP subdomain used with the PN transport.
 The default is 00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00 (which indicates
 an unknown subdomain).
