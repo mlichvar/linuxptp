@@ -28,6 +28,7 @@
 #include "ddt.h"
 #include "ether.h"
 #include "fsm.h"
+#include "servo.h"
 #include "transport.h"
 #include "unicast_fsm.h"
 
@@ -52,6 +53,13 @@ extern const char *ev_str[];
  * @return      Human-readable rendering if TS is valid, otherwise "???".
  */
 const char *ts_str(enum timestamp_type ts);
+
+/**
+ * Gets a human-readable string for a given servo state.
+ * @param ss    Servo state.
+ * @return      Human-readable rendering if ss is valid, otherwise "???".
+ */
+const char *ss_str(enum servo_state ss);
 
 /**
  * Compares two binary addresses for equality.

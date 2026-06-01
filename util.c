@@ -101,6 +101,22 @@ const char *ts_str(enum timestamp_type ts)
 	return "???";
 }
 
+const char *ss_str(enum servo_state ss)
+{
+	switch (ss) {
+	case SERVO_UNLOCKED:
+		return "UNLOCKED";
+	case SERVO_JUMP:
+		return "JUMP";
+	case SERVO_LOCKED:
+		return "LOCKED";
+	case SERVO_LOCKED_STABLE:
+		return "LOCKED_STABLE";
+	}
+
+	return "???";
+}
+
 int addreq(enum transport_type type, struct address *a, struct address *b)
 {
 	void *bufa, *bufb;
