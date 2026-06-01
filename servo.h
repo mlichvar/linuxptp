@@ -23,6 +23,8 @@
 #include <stdint.h>
 
 struct config;
+struct servo_status_np;
+struct servo_properties_np;
 
 /** Opaque type */
 struct servo;
@@ -143,5 +145,27 @@ int servo_offset_threshold(struct servo *servo);
  * @param enabled 1 to enable the servo, 0 to disable the servo.
  */
 void servo_set_enabled(struct servo *servo, int enabled);
+
+/**
+ * Return current status of a servo instance.
+ * @param servo   Pointer to a servo obtained via @ref servo_create().
+ * @param ssn     Pointer for the returned status.
+ */
+void servo_get_status(struct servo *servo, struct servo_status_np *ssn);
+
+/**
+ * Return current properties of a servo instance.
+ * @param servo   Pointer to a servo obtained via @ref servo_create().
+ * @param spn     Pointer for the returned properties.
+ */
+void servo_get_properties(struct servo *servo, struct servo_properties_np *spn);
+
+/**
+ * Modify properties of a servo instance.
+ * @param servo   Pointer to a servo obtained via @ref servo_create().
+ * @param spn     Pointer to the new properties.
+ * @return        0 on success, -1 if some property has an incorrect value.
+ */
+int servo_set_properties(struct servo *servo, struct servo_properties_np *spn);
 
 #endif

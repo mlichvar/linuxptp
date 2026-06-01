@@ -429,6 +429,8 @@ static int clock_management_fill_response(struct clock *c, struct port *p,
 	struct grandmaster_settings_np *gsn;
 	struct management_tlv_datum *mtd;
 	struct subscribe_events_np *sen;
+	struct servo_properties_np *spn;
+	struct servo_status_np *ssn;
 	struct management_tlv *tlv;
 	struct time_status_np *tsn;
 	struct tlv_extra *extra;
@@ -594,6 +596,17 @@ static int clock_management_fill_response(struct clock *c, struct port *p,
 		egpn->stepsRemoved = c->ext_gm_steps_removed;
 		datalen = sizeof(*egpn);
 		break;
+	case MID_SERVO_STATUS_NP:
+		ssn = (struct servo_status_np *) tlv->data;
+		ssn->state = c->servo_state;
+		servo_get_status(c->servo, ssn);
+		datalen = sizeof(*ssn);
+		break;
+	case MID_SERVO_PROPERTIES_NP:
+		spn = (struct servo_properties_np *) tlv->data;
+		servo_get_properties(c->servo, spn);
+		datalen = sizeof(*spn);
+		break;
 	default:
 		/* The caller should *not* respond to this message. */
 		tlv_extra_recycle(extra);
@@ -638,6 +651,7 @@ static int clock_management_set(struct clock *c, struct port *p,
 	struct grandmaster_settings_np *gsn;
 	struct management_tlv_datum *mtd;
 	struct subscribe_events_np *sen;
+	struct servo_properties_np *spn;
 	struct management_tlv *tlv;
 	int k, key, respond = 0;
 
@@ -729,6 +743,11 @@ static int clock_management_set(struct clock *c, struct port *p,
 		c->ext_gm_steps_removed = egpn->stepsRemoved;
 		*changed = 1;
 		respond = 1;
+		break;
+	case MID_SERVO_PROPERTIES_NP:
+		spn = (struct servo_properties_np *) tlv->data;
+		if (!servo_set_properties(c->servo, spn))
+			respond = 1;
 		break;
 	}
 	if (respond && !clock_management_get_response(c, p, id, req))
@@ -1815,6 +1834,8 @@ int clock_manage(struct clock *c, struct port *p, struct ptp_message *msg)
 	case MID_SYNCHRONIZATION_UNCERTAIN_NP:
 	case MID_ENABLE_SERVO_NP:
 	case MID_DISABLE_SERVO_NP:
+	case MID_SERVO_STATUS_NP:
+	case MID_SERVO_PROPERTIES_NP:
 		clock_management_send_error(p, msg, MID_NOT_SUPPORTED);
 		break;
 	default:

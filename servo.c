@@ -16,6 +16,7 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include <limits.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -194,4 +195,35 @@ void servo_set_enabled(struct servo *servo, int enabled)
 	} else {
 		servo->enabled = 0;
 	}
+}
+
+void servo_get_status(struct servo *servo, struct servo_status_np *ssn)
+{
+	ssn->flags = servo->enabled ? SERVO_ENABLED : 0;
+	ssn->stable_offsets = servo->num_offset_values -
+		servo->curr_offset_values;
+}
+
+void servo_get_properties(struct servo *servo, struct servo_properties_np *spn)
+{
+	spn->first_step_threshold = servo->first_step_threshold;
+	spn->step_threshold = servo->step_threshold;
+	spn->offset_threshold = servo->offset_threshold;
+	spn->num_offset_values = servo->num_offset_values;
+}
+
+int servo_set_properties(struct servo *servo, struct servo_properties_np *spn)
+{
+	if (spn->offset_threshold > INT_MAX || spn->num_offset_values > INT_MAX)
+		return -1;
+
+	servo->first_step_threshold = spn->first_step_threshold;
+	servo->step_threshold = spn->step_threshold;
+	servo->offset_threshold = spn->offset_threshold;
+	servo->num_offset_values = spn->num_offset_values;
+
+	if (servo->curr_offset_values > servo->num_offset_values)
+		servo->curr_offset_values = servo->num_offset_values;
+
+	return 0;
 }

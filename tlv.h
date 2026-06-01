@@ -103,6 +103,8 @@ enum management_action {
 #define MID_EXTERNAL_GRANDMASTER_PROPERTIES_NP		0xC00D
 #define MID_ENABLE_SERVO_NP				0xC00E
 #define MID_DISABLE_SERVO_NP				0xC00F
+#define MID_SERVO_STATUS_NP				0xC010
+#define MID_SERVO_PROPERTIES_NP				0xC011
 
 /* Port management ID values */
 #define MID_NULL_MANAGEMENT				0x0000
@@ -155,6 +157,9 @@ enum management_action {
 
 /* Flags in PORT_HWCLOCK_NP */
 #define PORT_HWCLOCK_VCLOCK		(1 << 0)
+
+/* Flags in SERVO_STATUS_NP */
+#define SERVO_ENABLED			(1 << 0)
 
 struct ack_cancel_unicast_xmit_tlv {
 	Enumeration16   type;
@@ -502,6 +507,21 @@ struct port_corrections_np {
 	Integer64 egressLatency;
 	Integer64 ingressLatency;
 	Integer64 delayAsymmetry;
+} PACKED;
+
+struct servo_status_np {
+	UInteger8 state;
+	UInteger8 reserved;
+	UInteger16 flags;
+	UInteger32 stable_offsets;
+} PACKED;
+
+struct servo_properties_np {
+	UInteger32 num_offset_values;
+	UInteger32 reserved;
+	UInteger64 offset_threshold;
+	UInteger64 first_step_threshold;
+	UInteger64 step_threshold;
 } PACKED;
 
 /**

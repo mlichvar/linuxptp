@@ -169,9 +169,11 @@ static void pmc_show(struct ptp_message *msg, FILE *fp)
 	struct management_tlv_datum *mtd;
 	struct unicast_master_entry *ume;
 	struct subscribe_events_np *sen;
+	struct servo_properties_np *spn;
 	struct port_corrections_np *pcn;
 	struct port_properties_np *ppn;
 	struct port_hwclock_np *phn;
+	struct servo_status_np *ssn;
 	struct cmlds_info_np *cmlds;
 	struct timePropertiesDS *tp;
 	struct management_tlv *mgt;
@@ -664,6 +666,28 @@ static void pmc_show(struct ptp_message *msg, FILE *fp)
 			pcn->egressLatency >> 16,
 			pcn->ingressLatency >> 16,
 			pcn->delayAsymmetry >> 16);
+		break;
+	case MID_SERVO_STATUS_NP:
+		ssn = (struct servo_status_np *) mgt->data;
+		fprintf(fp, "SERVO_STATUS_NP "
+			IFMT "state                %s"
+			IFMT "enabled              %d"
+			IFMT "stable_offsets       %"PRIu32,
+			ss_str(ssn->state),
+			ssn->flags & SERVO_ENABLED ? 1 : 0,
+			ssn->stable_offsets);
+		break;
+	case MID_SERVO_PROPERTIES_NP:
+		spn = (struct servo_properties_np *) mgt->data;
+		fprintf(fp, "SERVO_PROPERTIES_NP "
+			IFMT "num_offset_values    %"PRIu32
+			IFMT "offset_threshold     %"PRIu64
+			IFMT "first_step_threshold %"PRIu64
+			IFMT "step_threshold       %"PRIu64,
+			spn->num_offset_values,
+			spn->offset_threshold,
+			spn->first_step_threshold,
+			spn->step_threshold);
 		break;
 	case MID_LOG_ANNOUNCE_INTERVAL:
 		mtd = (struct management_tlv_datum *) mgt->data;

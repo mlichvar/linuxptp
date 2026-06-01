@@ -137,6 +137,8 @@ struct management_id idtab[] = {
 	{ "EXTERNAL_GRANDMASTER_PROPERTIES_NP", MID_EXTERNAL_GRANDMASTER_PROPERTIES_NP, do_set_action },
 	{ "ENABLE_SERVO_NP", MID_ENABLE_SERVO_NP, do_command_action },
 	{ "DISABLE_SERVO_NP", MID_DISABLE_SERVO_NP, do_command_action },
+	{ "SERVO_STATUS_NP", MID_SERVO_STATUS_NP, do_get_action },
+	{ "SERVO_PROPERTIES_NP", MID_SERVO_PROPERTIES_NP, do_set_action },
 /* Port management ID values */
 	{ "NULL_MANAGEMENT", MID_NULL_MANAGEMENT, null_management },
 	{ "CLOCK_DESCRIPTION", MID_CLOCK_DESCRIPTION, do_get_action },
@@ -184,6 +186,7 @@ static void do_set_action(struct pmc *pmc, int action, int index, char *str)
 	struct grandmaster_settings_np gsn;
 	struct management_tlv_datum mtd;
 	struct subscribe_events_np sen;
+	struct servo_properties_np spn;
 	struct port_corrections_np pcn;
 	struct port_ds_np pnp;
 	char onoff_port_state[4] = "off";
@@ -439,6 +442,24 @@ static void do_set_action(struct pmc *pmc, int action, int index, char *str)
 		pcn.ingressLatency <<= 16;
 		pcn.delayAsymmetry <<= 16;
 		pmc_send_set_action(pmc, code, &pcn, sizeof(pcn));
+		break;
+	case MID_SERVO_PROPERTIES_NP:
+		cnt = sscanf(str, " %*s %*s "
+			     "num_offset_values    %"SCNu32" "
+			     "offset_threshold     %"SCNu64" "
+			     "first_step_threshold %"SCNu64" "
+			     "step_threshold       %"SCNu64" ",
+			     &spn.num_offset_values,
+			     &spn.offset_threshold,
+			     &spn.first_step_threshold,
+			     &spn.step_threshold);
+		if (cnt != 4) {
+			fprintf(stderr, "%s SET needs 4 values\n",
+				idtab[index].name);
+			break;
+		}
+		spn.reserved = 0;
+		pmc_send_set_action(pmc, code, &spn, sizeof(spn));
 		break;
 	}
 }
@@ -807,6 +828,12 @@ static int pmc_tlv_datalen(struct pmc *pmc, int id)
 		break;
 	case MID_PORT_CORRECTIONS_NP:
 		len += sizeof(struct port_corrections_np);
+		break;
+	case MID_SERVO_STATUS_NP:
+		len += sizeof(struct servo_status_np);
+		break;
+	case MID_SERVO_PROPERTIES_NP:
+		len += sizeof(struct servo_properties_np);
 		break;
 	case MID_LOG_ANNOUNCE_INTERVAL:
 	case MID_ANNOUNCE_RECEIPT_TIMEOUT:
