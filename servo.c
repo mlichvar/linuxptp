@@ -184,3 +184,14 @@ int servo_offset_threshold(struct servo *servo)
 {
 	return servo->offset_threshold;
 }
+
+void servo_set_enabled(struct servo *servo, int enabled)
+{
+	if (enabled) {
+		if (!servo->enabled)
+			servo_reset(servo);
+		servo->enabled = 1;
+	} else {
+		servo->enabled = 0;
+	}
+}

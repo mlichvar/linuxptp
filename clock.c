@@ -449,6 +449,10 @@ static int clock_management_fill_response(struct clock *c, struct port *p,
 	tlv->id = id;
 
 	switch (id) {
+	case MID_ENABLE_SERVO_NP:
+	case MID_DISABLE_SERVO_NP:
+		datalen = 0;
+		break;
 	case MID_USER_DESCRIPTION:
 		text = (struct PTPText *) tlv->data;
 		text->length = c->desc.userDescription.length;
@@ -730,6 +734,23 @@ static int clock_management_set(struct clock *c, struct port *p,
 	if (respond && !clock_management_get_response(c, p, id, req))
 		pr_err("failed to send management set response");
 	return respond ? 1 : 0;
+}
+
+static int clock_management_command(struct clock *c, struct port *p,
+				    int id, struct ptp_message *req)
+{
+	switch (id) {
+	case MID_ENABLE_SERVO_NP:
+	case MID_DISABLE_SERVO_NP:
+		servo_set_enabled(c->servo, id == MID_ENABLE_SERVO_NP);
+		break;
+	default:
+		return 0;
+	}
+
+	if (!clock_management_get_response(c, p, id, req))
+		pr_err("failed to send management acknowledgement");
+	return 1;
 }
 
 static void clock_stats_update(struct clock_stats *s,
@@ -1743,6 +1764,8 @@ int clock_manage(struct clock *c, struct port *p, struct ptp_message *msg)
 			clock_management_send_error(p, msg, MID_NOT_SUPPORTED);
 			return changed;
 		}
+		if (clock_management_command(c, p, mgt->id, msg))
+			return changed;
 		break;
 	default:
 		return changed;
@@ -1790,6 +1813,8 @@ int clock_manage(struct clock *c, struct port *p, struct ptp_message *msg)
 	case MID_GRANDMASTER_SETTINGS_NP:
 	case MID_SUBSCRIBE_EVENTS_NP:
 	case MID_SYNCHRONIZATION_UNCERTAIN_NP:
+	case MID_ENABLE_SERVO_NP:
+	case MID_DISABLE_SERVO_NP:
 		clock_management_send_error(p, msg, MID_NOT_SUPPORTED);
 		break;
 	default:

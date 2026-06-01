@@ -512,6 +512,8 @@ static int mgt_post_recv(struct management_tlv *m, uint16_t data_len,
 	case MID_FAULT_LOG_RESET:
 	case MID_ENABLE_PORT:
 	case MID_DISABLE_PORT:
+	case MID_ENABLE_SERVO_NP:
+	case MID_DISABLE_SERVO_NP:
 		if (data_len != 0)
 			goto bad_length;
 		break;

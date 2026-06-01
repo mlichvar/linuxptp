@@ -137,4 +137,11 @@ void servo_leap(struct servo *servo, int leap);
  */
 int servo_offset_threshold(struct servo *servo);
 
+/**
+ * Enable or disable the servo.
+ * @param servo   Pointer to a servo obtained via @ref servo_create().
+ * @param enabled 1 to enable the servo, 0 to disable the servo.
+ */
+void servo_set_enabled(struct servo *servo, int enabled);
+
 #endif
