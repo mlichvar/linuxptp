@@ -866,7 +866,7 @@ static int update_domain_clocks(struct domain *domain)
 	return 0;
 }
 
-static int do_loop(struct domain *domains, int n_domains)
+static int do_loop(struct domain *domains, int n_domains, int static_config)
 {
 	int i, state_changed, prev_sub;
 	struct timespec interval;
@@ -911,7 +911,8 @@ static int do_loop(struct domain *domains, int n_domains)
 		}
 
 		if (state_changed) {
-			reconfigure(domains, n_domains);
+			if (!static_config)
+				reconfigure(domains, n_domains);
 			state_changed = 0;
 		}
 
@@ -1580,7 +1581,7 @@ int main(int argc, char *argv[])
 				goto end;
 		}
 
-		r = do_loop(domains, n_domains);
+		r = do_loop(domains, n_domains, 0);
 		goto end;
 	}
 
@@ -1646,7 +1647,7 @@ int main(int argc, char *argv[])
 		servo_sync_interval(dst->servo, 1.0);
 		r = do_pps_loop(&domains[0], dst, pps_fd);
 	} else {
-		r = do_loop(&domains[0], 1);
+		r = do_loop(&domains[0], 1, 1);
 	}
 
 end:
