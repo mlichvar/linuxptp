@@ -164,10 +164,10 @@ static int pn_configure(int fd, int event, int index, int enable)
 
 	option = enable ? PACKET_ADD_MEMBERSHIP : PACKET_DROP_MEMBERSHIP;
 
+	memset(&mreq, 0, sizeof (mreq));
 	mreq.mr_ifindex = index;
 	mreq.mr_type = PACKET_MR_ALLMULTI;
 	mreq.mr_alen = 0;
-	memset(&mreq.mr_address, 0, sizeof (mreq.mr_address));
 	if (!setsockopt(fd, SOL_PACKET, option, &mreq, sizeof(mreq))) {
 		return 0;
 	}
@@ -193,18 +193,37 @@ static int pn_close(struct transport *t, struct fdarray *fda)
 	return 0;
 }
 
-static int open_socket(const char *name, int event)
+static int open_socket(struct interface *iface, int event,
+		       enum timestamp_type ts_type)
 {
+	const char *name = interface_label(iface);
 	struct sockaddr_ll addr;
 	int fd, index;
 
-	fd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+	fd = socket(PF_PACKET, SOCK_RAW, 0);
 	if (fd < 0) {
 		pr_err("socket failed: %m");
 		goto no_socket;
 	}
 	index = sk_interface_index(fd, name);
 	if (index < 0)
+		goto no_option;
+
+	if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name))) {
+		pr_err("setsockopt SO_BINDTODEVICE failed: %m");
+		goto no_option;
+	}
+
+	if (event) {
+		if (sk_timestamping_init(fd, name, ts_type, TRANS_IEEE_802_3,
+					 interface_get_vclock(iface)))
+			goto no_option;
+	} else {
+		if (sk_general_init(fd))
+			goto no_option;
+	}
+
+	if (pn_configure(fd, event, index, 1))
 		goto no_option;
 
 	memset(&addr, 0, sizeof(addr));
@@ -215,12 +234,6 @@ static int open_socket(const char *name, int event)
 		pr_err("bind failed: %m");
 		goto no_option;
 	}
-	if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name, strlen(name))) {
-		pr_err("setsockopt SO_BINDTODEVICE failed: %m");
-		goto no_option;
-	}
-	if (pn_configure(fd, event, index, 1))
-		goto no_option;
 
 	return fd;
 no_option:
@@ -281,27 +294,18 @@ static int pn_open(struct transport *t, struct interface *iface,
 	if (sk_interface_macaddr(name, &pn->src_addr))
 		goto no_mac;
 
-	efd = open_socket(name, 1);
+	efd = open_socket(iface, 1, ts_type);
 	if (efd < 0)
 		goto no_event;
 
-	gfd = open_socket(name, 0);
+	gfd = open_socket(iface, 0, ts_type);
 	if (gfd < 0)
 		goto no_general;
-
-	if (sk_timestamping_init(efd, name, ts_type, TRANS_IEEE_802_3,
-				 interface_get_vclock(iface)))
-		goto no_timestamping;
-
-	if (sk_general_init(gfd))
-		goto no_timestamping;
 
 	fda->fd[FD_EVENT] = efd;
 	fda->fd[FD_GENERAL] = gfd;
 	return 0;
 
-no_timestamping:
-	close(gfd);
 no_general:
 	close(efd);
 no_event:
