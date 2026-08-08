@@ -2628,6 +2628,7 @@ static void port_peer_delay(struct port *p)
 	struct ptp_message *req = p->peer_delay_req;
 	struct ptp_message *rsp = p->peer_delay_resp;
 	struct ptp_message *fup = p->peer_delay_fup;
+	double ratio;
 
 	/* Check for response, validate port and sequence number. */
 
@@ -2682,8 +2683,17 @@ calc:
 	if (p->follow_up_info)
 		port_nrate_calculate(p, t3c, t4);
 
-	tsproc_set_clock_rate_ratio(p->tsproc, p->nrate.ratio *
-				    clock_rate_ratio(p->clock));
+	if (p->nrate.ratio_valid && clock_free_running(p->clock)) {
+		/*
+		 * Nothing is steering our clock, so the neighbor rate
+		 * ratio is already referred to the rate we are measuring
+		 * at now, and needs no further scaling.
+		 */
+		ratio = p->nrate.ratio;
+	} else {
+		ratio = p->nrate.ratio * clock_rate_ratio(p->clock);
+	}
+	tsproc_set_clock_rate_ratio(p->tsproc, ratio);
 	tsproc_up_ts(p->tsproc, t1, t2);
 	tsproc_down_ts(p->tsproc, t3c, t4);
 	if (tsproc_update_delay(p->tsproc, &p->peer_delay))
