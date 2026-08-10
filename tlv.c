@@ -504,9 +504,9 @@ static int mgt_post_recv(struct management_tlv *m, uint16_t data_len,
 		if (data_len != sizeof(struct port_corrections_np))
 			goto bad_length;
 		pcn = (struct port_corrections_np *) m->data;
-		net2host64(pcn->egressLatency);
-		net2host64(pcn->ingressLatency);
-		net2host64(pcn->delayAsymmetry);
+		pcn->egressLatency = net2host64(pcn->egressLatency);
+		pcn->ingressLatency = net2host64(pcn->ingressLatency);
+		pcn->delayAsymmetry = net2host64(pcn->delayAsymmetry);
 		break;
 	case MID_SERVO_STATUS_NP:
 		if (data_len != sizeof(struct servo_status_np))
@@ -734,9 +734,9 @@ static void mgt_pre_send(struct management_tlv *m, struct tlv_extra *extra)
 		break;
 	case MID_PORT_CORRECTIONS_NP:
 		pcn = (struct port_corrections_np *)m->data;
-		host2net64(pcn->egressLatency);
-		host2net64(pcn->ingressLatency);
-		host2net64(pcn->delayAsymmetry);
+		pcn->egressLatency = host2net64(pcn->egressLatency);
+		pcn->ingressLatency = host2net64(pcn->ingressLatency);
+		pcn->delayAsymmetry = host2net64(pcn->delayAsymmetry);
 		break;
 	case MID_SERVO_STATUS_NP:
 		ssn = (struct servo_status_np *)m->data;
