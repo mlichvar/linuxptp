@@ -3253,6 +3253,15 @@ static enum fsm_event bc_event(struct port *p, int fd_index)
 		}
 		return EV_NONE;
 	}
+	if ((msg_type(msg) >= SYNC && msg_type(msg) <= PDELAY_RESP) !=
+	    (fd_index == FD_EVENT)) {
+		pr_err("%s: message type does not match socket", p->log_name);
+		msg_put(msg);
+		if (dup) {
+			msg_put(dup);
+		}
+		return EV_NONE;
+	}
 	port_stats_inc_rx(p, msg);
 	if (port_ignore(p, msg)) {
 		msg_put(msg);
