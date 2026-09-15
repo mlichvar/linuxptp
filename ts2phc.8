@@ -248,18 +248,29 @@ The default is an empty string. (disabled).
 
 .TP
 .B servo_num_offset_values
-The number of offset values considered in order to transition from the
-SERVO_LOCKED to the SERVO_LOCKED_STABLE state.
-The transition occurs once the last 'servo_num_offset_values' offsets
-are all below the 'servo_offset_threshold' value.
-The default value is 10.
+The minimum number of offsets smaller than the threshold specified by the
+\fBservo_offset_threshold\fR option in order for the servo to transition from
+the SERVO_LOCKED to the SERVO_LOCKED_STABLE state.
+The default is 10.
 
 .TP
 .B servo_offset_threshold
-The offset threshold used in order to transition from the SERVO_LOCKED
-to the SERVO_LOCKED_STABLE state.  The transition occurs once the
-last 'servo_num_offset_values' offsets are all below the threshold value.
-The default value of offset_threshold is 0 (disabled).
+The offset threshold, specified in nanoseconds, that the servo uses for
+transitions between the SERVO_LOCKED (s2) and SERVO_LOCKED_STABLE (s3) states.
+The transitions are determined by a leaky bucket. When the bucket is full, the
+servo will switch to the SERVO_LOCKED_STABLE state. When it is empty, it will
+switch back to the SERVO_LOCKED state. The filling and emptying rates are set
+by the \fBservo_num_offset_values\fR and \fBservo_unstable_offsets\fR options
+respectively.
+The default is 0, which effectively disables the SERVO_LOCKED_STABLE state.
+
+.TP
+.B servo_unstable_offsets
+The minimum number of offsets larger than or equal to the threshold specified
+by the \fBservo_offset_threshold\fR option in order for the servo to transition
+from the SERVO_LOCKED_STABLE to the SERVO_LOCKED state.
+The default is 1, i.e. one large offset immediately triggers a switch back to
+the SERVO_LOCKED state.
 
 .TP
 .B step_threshold

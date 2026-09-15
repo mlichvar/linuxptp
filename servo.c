@@ -17,6 +17,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include <limits.h>
+#include <math.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -90,7 +91,9 @@ struct servo *servo_create(struct config *cfg, enum servo_type type,
 	servo->first_update = 1;
 	servo->offset_threshold = config_get_int(cfg, NULL, "servo_offset_threshold");
 	servo->num_offset_values = config_get_int(cfg, NULL, "servo_num_offset_values");
-	servo->curr_offset_values = servo->num_offset_values;
+	servo->unstable_offsets = config_get_int(cfg, NULL, "servo_unstable_offsets");
+	servo->stability_bucket = 0.0;
+	servo->stable = 0;
 
 	return servo;
 }
@@ -105,13 +108,27 @@ static int check_offset_threshold(struct servo *s, int64_t offset)
 	long long int abs_offset = llabs(offset);
 
 	if (s->offset_threshold) {
+		/*
+		 * Update the bucket value and switch between the states if
+		 * 0.0 or 1.0 is reached. Adjust the limit by a small constant
+		 * to better deal with floating-point errors.
+		 */
 		if (abs_offset < s->offset_threshold) {
-			if (s->curr_offset_values)
-				s->curr_offset_values--;
+			s->stability_bucket += 1.0 / (s->num_offset_values > 0 ?
+						      s->num_offset_values : 1);
+			if (s->stability_bucket >= 1.0 - 1e-6) {
+				s->stability_bucket = 1.0;
+				s->stable = 1;
+			}
 		} else {
-			s->curr_offset_values = s->num_offset_values;
+			s->stability_bucket -= 1.0 / s->unstable_offsets;
+			if (s->stability_bucket <= 1e-6) {
+				s->stability_bucket = 0.0;
+				s->stable = 0;
+			}
 		}
-		return s->curr_offset_values ? 0 : 1;
+
+		return s->stable;
 	}
 	return 0;
 }
@@ -133,10 +150,12 @@ double servo_sample(struct servo *servo,
 
 	switch (*state) {
 	case SERVO_UNLOCKED:
-		servo->curr_offset_values = servo->num_offset_values;
+		servo->stability_bucket = 0.0;
+		servo->stable = 0;
 		break;
 	case SERVO_JUMP:
-		servo->curr_offset_values = servo->num_offset_values;
+		servo->stability_bucket = 0.0;
+		servo->stable = 0;
 		servo->first_update = 0;
 		break;
 	case SERVO_LOCKED:
@@ -200,8 +219,8 @@ void servo_set_enabled(struct servo *servo, int enabled)
 void servo_get_status(struct servo *servo, struct servo_status_np *ssn)
 {
 	ssn->flags = servo->enabled ? SERVO_ENABLED : 0;
-	ssn->stable_offsets = servo->num_offset_values -
-		servo->curr_offset_values;
+	ssn->stable_offsets = round(servo->stability_bucket *
+				    servo->num_offset_values);
 }
 
 void servo_get_properties(struct servo *servo, struct servo_properties_np *spn)
@@ -210,20 +229,20 @@ void servo_get_properties(struct servo *servo, struct servo_properties_np *spn)
 	spn->step_threshold = servo->step_threshold;
 	spn->offset_threshold = servo->offset_threshold;
 	spn->num_offset_values = servo->num_offset_values;
+	spn->unstable_offsets = servo->unstable_offsets;
 }
 
 int servo_set_properties(struct servo *servo, struct servo_properties_np *spn)
 {
-	if (spn->offset_threshold > INT_MAX || spn->num_offset_values > INT_MAX)
+	if (spn->offset_threshold > INT_MAX || spn->num_offset_values > INT_MAX ||
+	    spn->unstable_offsets > INT_MAX || spn->unstable_offsets < 1)
 		return -1;
 
 	servo->first_step_threshold = spn->first_step_threshold;
 	servo->step_threshold = spn->step_threshold;
 	servo->offset_threshold = spn->offset_threshold;
 	servo->num_offset_values = spn->num_offset_values;
-
-	if (servo->curr_offset_values > servo->num_offset_values)
-		servo->curr_offset_values = servo->num_offset_values;
+	servo->unstable_offsets = spn->unstable_offsets;
 
 	return 0;
 }

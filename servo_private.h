@@ -32,7 +32,9 @@ struct servo {
 	int first_update;
 	int64_t offset_threshold;
 	int num_offset_values;
-	int curr_offset_values;
+	int unstable_offsets;
+	double stability_bucket;
+	int stable;
 
 	void (*destroy)(struct servo *servo);
 

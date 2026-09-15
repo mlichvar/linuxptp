@@ -681,10 +681,12 @@ static void pmc_show(struct ptp_message *msg, FILE *fp)
 		spn = (struct servo_properties_np *) mgt->data;
 		fprintf(fp, "SERVO_PROPERTIES_NP "
 			IFMT "num_offset_values    %"PRIu32
+			IFMT "unstable_offsets     %"PRIu32
 			IFMT "offset_threshold     %"PRIu64
 			IFMT "first_step_threshold %"PRIu64
 			IFMT "step_threshold       %"PRIu64,
 			spn->num_offset_values,
+			spn->unstable_offsets,
 			spn->offset_threshold,
 			spn->first_step_threshold,
 			spn->step_threshold);

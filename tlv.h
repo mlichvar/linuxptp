@@ -518,7 +518,7 @@ struct servo_status_np {
 
 struct servo_properties_np {
 	UInteger32 num_offset_values;
-	UInteger32 reserved;
+	UInteger32 unstable_offsets;
 	UInteger64 offset_threshold;
 	UInteger64 first_step_threshold;
 	UInteger64 step_threshold;

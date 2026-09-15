@@ -520,6 +520,7 @@ static int mgt_post_recv(struct management_tlv *m, uint16_t data_len,
 			goto bad_length;
 		spn = (struct servo_properties_np *) m->data;
 		NTOHL(spn->num_offset_values);
+		NTOHL(spn->unstable_offsets);
 		spn->offset_threshold = net2host64(spn->offset_threshold);
 		spn->first_step_threshold = net2host64(spn->first_step_threshold);
 		spn->step_threshold = net2host64(spn->step_threshold);
@@ -746,6 +747,7 @@ static void mgt_pre_send(struct management_tlv *m, struct tlv_extra *extra)
 	case MID_SERVO_PROPERTIES_NP:
 		spn = (struct servo_properties_np *)m->data;
 		HTONL(spn->num_offset_values);
+		HTONL(spn->unstable_offsets);
 		spn->offset_threshold = host2net64(spn->offset_threshold);
 		spn->first_step_threshold = host2net64(spn->first_step_threshold);
 		spn->step_threshold = host2net64(spn->step_threshold);

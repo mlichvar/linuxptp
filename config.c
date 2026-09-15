@@ -358,6 +358,7 @@ struct config_item config_tab[] = {
 	GLOB_ITEM_INT("servo_enabled", 1, 0, 1),
 	GLOB_ITEM_INT("servo_num_offset_values", 10, 0, INT_MAX),
 	GLOB_ITEM_INT("servo_offset_threshold", 0, 0, INT_MAX),
+	GLOB_ITEM_INT("servo_unstable_offsets", 1, 1, INT_MAX),
 	GLOB_ITEM_STR("slave_event_monitor", ""),
 	GLOB_ITEM_INT("slaveOnly", 0, 0, 1), /*deprecated*/
 	GLOB_ITEM_INT("socket_priority", 0, 0, 15),

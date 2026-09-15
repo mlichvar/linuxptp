@@ -63,8 +63,8 @@ enum servo_state {
 	SERVO_LOCKED,
 
 	/**
-	 * The Servo has stabilized. The last 'servo_num_offset_values' values
-	 * of the estimated threshold are less than servo_offset_threshold.
+	 * The servo is stable considering the servo_num_offset_values,
+	 * servo_unstable_offsets, and servo_offset_threshold configuration.
 	 */
 	SERVO_LOCKED_STABLE,
 };

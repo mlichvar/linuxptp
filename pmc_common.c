@@ -446,19 +446,20 @@ static void do_set_action(struct pmc *pmc, int action, int index, char *str)
 	case MID_SERVO_PROPERTIES_NP:
 		cnt = sscanf(str, " %*s %*s "
 			     "num_offset_values    %"SCNu32" "
+			     "unstable_offsets     %"SCNu32" "
 			     "offset_threshold     %"SCNu64" "
 			     "first_step_threshold %"SCNu64" "
 			     "step_threshold       %"SCNu64" ",
 			     &spn.num_offset_values,
+			     &spn.unstable_offsets,
 			     &spn.offset_threshold,
 			     &spn.first_step_threshold,
 			     &spn.step_threshold);
-		if (cnt != 4) {
-			fprintf(stderr, "%s SET needs 4 values\n",
+		if (cnt != 5) {
+			fprintf(stderr, "%s SET needs 5 values\n",
 				idtab[index].name);
 			break;
 		}
-		spn.reserved = 0;
 		pmc_send_set_action(pmc, code, &spn, sizeof(spn));
 		break;
 	}
