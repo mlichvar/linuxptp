@@ -81,9 +81,6 @@ struct clock {
 	int state;
 	int new_state;
 	int static_state;
-	int sync_offset;
-	int leap_set;
-	int utc_offset_set;
 	struct servo *servo;
 	enum servo_state servo_state;
 	char *device;
@@ -109,7 +106,6 @@ struct domain {
 	int phc_readings;
 	double phc_interval;
 	int forced_sync_offset;
-	int kernel_leap;
 	int state_changed;
 	int free_running;
 	int has_sys_clock;
@@ -125,10 +121,6 @@ struct domain {
 
 static struct config *phc2sys_config;
 
-static int clock_handle_leap(struct domain *domain,
-			     struct clock *clock,
-			     int64_t offset, uint64_t ts);
-
 static struct servo *servo_add(struct domain *domain,
 			       struct clock *clock)
 {
@@ -140,7 +132,7 @@ static struct servo *servo_add(struct domain *domain,
 	ppb = clockadj_get_freq(clock->clkid);
 	if (is_sys_clock(clock->clkid)) {
 		if (clock->clkid == CLOCK_REALTIME)
-			sysclk_set_leap(0);
+			sysclk_set_tai_offset(CURRENT_UTC_OFFSET);
 		max_ppb = clockadj_max_freq(clock->clkid);
 	} else {
 		max_ppb = phc_max_adj(clock->clkid);
@@ -569,11 +561,16 @@ static void reconfigure(struct domain *domains, int n_domains)
 
 static int64_t get_sync_offset(struct domain *domain, struct clock *dst)
 {
-	int direction = domain->forced_sync_offset;
+	int sync_offset, direction = domain->forced_sync_offset;
+	struct pmc_agent *agent;
+
+	/* The system clock's domain doesn't have a subscribed agent */
+	agent = domain->has_sys_clock ? domain->src_domain->agent : domain->agent;
+	sync_offset = pmc_agent_get_sync_offset(agent);
 
 	if (!direction)
 		direction = dst->is_utc - domain->src_clock->is_utc;
-	return (int64_t)dst->sync_offset * NS_PER_SEC * direction;
+	return (int64_t)sync_offset * NS_PER_SEC * direction;
 }
 
 static void update_clock_stats(struct clock *clock, unsigned int max_count,
@@ -626,9 +623,6 @@ static void update_clock(struct domain *domain, struct clock *clock,
 		if (!clock->servo)
 			return;
 	}
-
-	if (clock_handle_leap(domain, clock, offset, ts))
-		return;
 
 	offset += get_sync_offset(domain, clock);
 
@@ -1083,68 +1077,6 @@ static int auto_init_sys(struct domain *domain, const char *sys_clock,
 	return 0;
 }
 
-/* Returns: non-zero to skip clock update */
-static int clock_handle_leap(struct domain *domain, struct clock *clock,
-			     int64_t offset, uint64_t ts)
-{
-	int clock_leap, node_leap;
-	struct pmc_agent *agent;
-
-	/* The system clock's domain doesn't have a subscribed agent */
-	agent = domain->has_sys_clock ? domain->src_domain->agent : domain->agent;
-
-	node_leap = pmc_agent_get_leap(agent);
-	clock->sync_offset = pmc_agent_get_sync_offset(agent);
-
-	if ((node_leap || clock->leap_set) &&
-	    clock->is_utc != domain->src_clock->is_utc) {
-		/* If the source clock is in UTC, get a time stamp from it, as
-		   it is the clock which will include the leap second. */
-		if (domain->src_clock->is_utc) {
-			struct timespec tp;
-			if (clock_gettime(domain->src_clock->clkid, &tp)) {
-				pr_err("failed to read clock: %m");
-				return -1;
-			}
-			ts = tp.tv_sec * NS_PER_SEC + tp.tv_nsec;
-		}
-
-		/* If the clock will be stepped, the time stamp has to be the
-		   new time. Ignore possible 1 second error in UTC offset. */
-		if (clock->is_utc && clock->servo_state == SERVO_UNLOCKED)
-			ts -= offset + get_sync_offset(domain, clock);
-
-		/* Suspend clock updates in the last second before midnight. */
-		if (is_utc_ambiguous(ts)) {
-			pr_info("clock update suspended due to leap second");
-			return 1;
-		}
-
-		clock_leap = leap_second_status(ts, clock->leap_set,
-						&node_leap,
-						&clock->sync_offset);
-
-		if (clock->leap_set != clock_leap) {
-			/* Only the realtime system clock can leap. */
-			if (clock->clkid == CLOCK_REALTIME &&
-			    domain->kernel_leap)
-				sysclk_set_leap(clock_leap);
-			else
-				servo_leap(clock->servo, clock_leap);
-			clock->leap_set = clock_leap;
-		}
-	}
-
-	if (pmc_agent_utc_offset_traceable(agent) &&
-	    clock->utc_offset_set != clock->sync_offset) {
-		if (clock->clkid == CLOCK_REALTIME)
-			sysclk_set_tai_offset(clock->sync_offset);
-		clock->utc_offset_set = clock->sync_offset;
-	}
-
-	return 0;
-}
-
 static bool hardpps_configured(int fd)
 {
 	return fd >= 0;
@@ -1226,7 +1158,6 @@ static void usage(char *progname)
 		" -M [num]       NTP SHM segment number (0)\n"
 		" -u [num]       number of clock updates in summary stats (0)\n"
 		" -n [num]       domain number (0)\n"
-		" -x             apply leap seconds by servo instead of kernel\n"
 		" -z [path]      server address for UDS (/var/run/ptp/ptp4l)\n"
 		" -l [num]       set the logging level to 'num' (6)\n"
 		" -t [tag]       add tag to log messages\n"
@@ -1426,9 +1357,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'x':
-			if (config_set_int(cfg, "kernel_leap", 0)) {
-				goto end;
-			}
+			/* Leap seconds are no longer supported */
 			break;
 		case 'z':
 			if (strlen(optarg) > MAX_IFNAME_SIZE) {
@@ -1526,10 +1455,8 @@ int main(int argc, char *argv[])
 	}
 	if (settings.free_running || settings.servo_type == CLOCK_SERVO_NTPSHM ||
 	    settings.system_servo_type == CLOCK_SERVO_NTPSHM) {
-		config_set_int(cfg, "kernel_leap", 0);
 		config_set_int(cfg, "sanity_freq_limit", 0);
 	}
-	settings.kernel_leap = config_get_int(cfg, NULL, "kernel_leap");
 	settings.sanity_freq_limit = config_get_int(cfg, NULL, "sanity_freq_limit");
 
 	if (autocfg) {

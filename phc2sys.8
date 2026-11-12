@@ -233,11 +233,7 @@ on the command line.
 The default is 0.
 .TP
 .B \-x
-When a leap second is announced, don't apply it in the kernel by stepping the
-clock, but let the servo correct the one-second offset slowly by changing the
-clock frequency (unless the
-.B \-S
-option is used).
+This option has no effect. It is kept for compatibility with older versions.
 .TP
 .BI \-z " uds-address"
 Specifies the address of the server's UNIX domain socket. This option can be
@@ -353,17 +349,6 @@ Same as option
 .TP
 .B free-running
 Don't adjust the sink clock if enabled. The default is 0 (disabled).
-
-.TP
-.B kernel_leap
-When a leap second is announced, let the kernel apply it by stepping the
-clock instead of correcting the one-second offset with servo, which would
-correct the one-second offset slowly by changing the clock frequency
-(unless the step_threshold option is set to correct such offset by
-stepping). Relevant only with software time stamping. The default is 1
-(enabled). Same as option
-.B \-x
-(see above).
 
 .TP
 .B logging_level
