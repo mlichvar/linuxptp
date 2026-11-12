@@ -27,7 +27,7 @@ SECURITY = sad.o
 FILTERS	= filter.o mave.o mmedian.o
 SERVOS	= linreg.o ntpshm.o nullf.o pi.o refclock_sock.o servo.o
 TRANSP	= raw.o transport.o udp.o udp6.o uds.o
-TS2PHC	= ts2phc.o lstab.o nmea.o serial.o sock.o ts2phc_generic_pps_source.o \
+TS2PHC	= ts2phc.o nmea.o serial.o sock.o ts2phc_generic_pps_source.o \
  ts2phc_nmea_pps_source.o ts2phc_phc_pps_source.o ts2phc_pps_sink.o ts2phc_pps_source.o
 OBJ	= bmc.o clock.o clockadj.o clockcheck.o config.o designated_fsm.o \
  e2e_tc.o fault.o $(FILTERS) fsm.o hash.o interface.o monitor.o msg.o phc.o \
@@ -95,7 +95,7 @@ ts2phc: config.o clockadj.o hash.o interface.o msg.o phc.o pmc_agent.o \
  pmc_common.o print.o $(SECURITY) $(SERVOS) sk.o $(TS2PHC) tlv.o transport.o \
  $(TRANSP) util.o version.o
 
-tz2alt: config.o hash.o interface.o lstab.o msg.o phc.o pmc_common.o print.o \
+tz2alt: config.o hash.o interface.o msg.o phc.o pmc_common.o print.o \
  $(SECURITY) sk.o tlv.o $(TRANSP) tz2alt.o util.o version.o
 
 version.o: .version version.sh $(filter-out version.d,$(DEPEND))
