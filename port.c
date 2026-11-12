@@ -3181,7 +3181,6 @@ static enum fsm_event bc_event(struct port *p, int fd_index)
 		pr_debug("%s: master tx announce timeout", p->log_name);
 		port_set_manno_tmo(p);
 		p->service_stats.master_announce_timeout++;
-		clock_update_leap_status(p->clock);
 		return port_tx_announce(p, NULL, p->seqnum.announce++) ?
 			EV_FAULT_DETECTED : EV_NONE;
 

@@ -779,15 +779,6 @@ Full mode set the receive filter to mark all packets with hardware time stamp,
 The default is normal.
 
 .TP
-.B kernel_leap
-When a leap second is announced, let the kernel apply it by stepping the clock
-instead of correcting the one-second offset with servo, which would correct the
-one-second offset slowly by changing the clock frequency (unless the
-.B step_threshold
-option is set to correct such offset by stepping).
-Relevant only with software time stamping. The default is 1 (enabled).
-
-.TP
 .B logging_level
 The maximum logging level of messages which should be printed.
 The default is 6 (LOG_INFO).
@@ -1124,11 +1115,6 @@ The default is 1 (enabled).
 The user description string. Allowed values are of the form
 name;location and contain at most 128 utf8 symbols. The default is an
 empty string.
-
-.TP
-.B utc_offset
-The current offset between TAI and UTC.
-The default is 37.
 
 .TP
 .B verbose

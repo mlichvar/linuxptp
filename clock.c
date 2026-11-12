@@ -119,10 +119,6 @@ struct clock {
 	int write_phase_mode;
 	int grand_master_capable; /* for 802.1AS only */
 	int utc_timescale;
-	int utc_offset_set;
-	int leap_set;
-	int kernel_leap;
-	int utc_offset;
 	int time_flags;  /* grand master role */
 	int time_source; /* grand master role */
 	UInteger8 clock_class_threshold;
@@ -570,7 +566,7 @@ static int clock_management_fill_response(struct clock *c, struct port *p,
 	case MID_GRANDMASTER_SETTINGS_NP:
 		gsn = (struct grandmaster_settings_np *) tlv->data;
 		gsn->clockQuality = c->dds.clockQuality;
-		gsn->utc_offset = c->utc_offset;
+		gsn->utc_offset = CURRENT_UTC_OFFSET;
 		gsn->time_flags = c->time_flags;
 		gsn->time_source = c->time_source;
 		datalen = sizeof(*gsn);
@@ -710,9 +706,19 @@ static int clock_management_set(struct clock *c, struct port *p,
 		break;
 	case MID_GRANDMASTER_SETTINGS_NP:
 		gsn = (struct grandmaster_settings_np *) tlv->data;
-		c->dds.clockQuality = gsn->clockQuality;
-		c->utc_offset = gsn->utc_offset;
 		c->time_flags = gsn->time_flags;
+		if (c->time_flags & PTP_TIMESCALE) {
+			if (gsn->utc_offset != CURRENT_UTC_OFFSET)
+				pr_warning("overriding currentUtcOffset");
+			if (!(gsn->time_flags & UTC_OFF_VALID))
+				pr_warning("adding currentUtcOffsetValid flag");
+			c->time_flags |= UTC_OFF_VALID;
+		}
+		if (gsn->time_flags & (LEAP_61 | LEAP_59)) {
+			pr_warning("suppressing leap second");
+			c->time_flags &= ~(LEAP_61 | LEAP_59);
+		}
+		c->dds.clockQuality = gsn->clockQuality;
 		c->time_source = gsn->time_source;
 		*changed = 1;
 		respond = 1;
@@ -908,7 +914,7 @@ static void clock_update_grandmaster(struct clock *c)
 	pds->grandmasterPriority1               = c->dds.priority1;
 	pds->grandmasterPriority2               = c->dds.priority2;
 	c->dad.path_length                      = 0;
-	c->tds.currentUtcOffset                 = c->utc_offset;
+	c->tds.currentUtcOffset                 = CURRENT_UTC_OFFSET;
 	c->tds.flags                            = c->time_flags;
 	c->tds.timeSource                       = c->time_source;
 
@@ -938,79 +944,23 @@ static void clock_update_slave(struct clock *c)
 	if (!(tds.flags & PTP_TIMESCALE)) {
 		pr_warning("foreign master not using PTP timescale");
 	}
-	if (tds.currentUtcOffset < c->utc_offset) {
-		pr_warning("running in a temporal vortex");
-	}
 	clock_update_time_properties(c, tds);
 
 	if (clock_compare_pds(&old_pds, pds))
 		clock_notify_event(c, NOTIFY_PARENT_DATA_SET);
 }
 
-static int clock_utc_correct(struct clock *c, tmv_t ingress)
+static void clock_utc_correct(struct clock *c)
 {
 	struct timespec offset;
-	int utc_offset, leap, clock_leap;
-	uint64_t ts;
 
-	if (!c->utc_timescale && c->tds.flags & PTP_TIMESCALE)
-		return 0;
+	if (!c->utc_timescale || !(c->tds.flags & PTP_TIMESCALE))
+		return;
 
-	utc_offset = c->utc_offset;
-
-	if (c->tds.flags & LEAP_61) {
-		leap = 1;
-	} else if (c->tds.flags & LEAP_59) {
-		leap = -1;
-	} else {
-		leap = 0;
-	}
-
-	/* Handle leap seconds. */
-	if (leap || c->leap_set) {
-		/* If the clock will be stepped, the time stamp has to be the
-		   target time. Ignore possible 1 second error in utc_offset. */
-		if (c->servo_state == SERVO_UNLOCKED) {
-			ts = tmv_to_nanoseconds(tmv_sub(ingress,
-							c->master_offset));
-			if (c->tds.flags & PTP_TIMESCALE)
-				ts -= utc_offset * NS_PER_SEC;
-		} else {
-			ts = tmv_to_nanoseconds(ingress);
-		}
-
-		/* Suspend clock updates in the last second before midnight. */
-		if (is_utc_ambiguous(ts)) {
-			pr_info("clock update suspended due to leap second");
-			return -1;
-		}
-
-		clock_leap = leap_second_status(ts, c->leap_set,
-						&leap, &utc_offset);
-		if (c->leap_set != clock_leap) {
-			if (c->kernel_leap && c->clkid == CLOCK_REALTIME)
-				sysclk_set_leap(clock_leap);
-			else
-				servo_leap(c->servo, clock_leap);
-			c->leap_set = clock_leap;
-		}
-	}
-
-	/* Update TAI-UTC offset of the system clock if valid and traceable. */
-	if (c->tds.flags & UTC_OFF_VALID && c->tds.flags & TIME_TRACEABLE &&
-	    c->utc_offset_set != utc_offset && c->clkid == CLOCK_REALTIME) {
-		sysclk_set_tai_offset(utc_offset);
-		c->utc_offset_set = utc_offset;
-	}
-
-	if (!(c->tds.flags & PTP_TIMESCALE))
-		return 0;
-
-	offset.tv_sec = utc_offset;
+	offset.tv_sec = CURRENT_UTC_OFFSET;
 	offset.tv_nsec = 0;
 	/* Local clock is UTC, but master is TAI. */
 	c->master_offset = tmv_add(c->master_offset, timespec_to_tmv(offset));
-	return 0;
 }
 
 static int forwarding(struct clock *c, struct port *p)
@@ -1368,8 +1318,6 @@ struct clock *clock_create(enum clock_type type, struct config *config,
 	c->local_sync_uncertain = SYNC_UNCERTAIN_DONTCARE;
 	c->write_phase_mode = config_get_int(config, NULL, "write_phase_mode");
 	c->grand_master_capable = config_get_int(config, NULL, "gmCapable");
-	c->kernel_leap = config_get_int(config, NULL, "kernel_leap");
-	c->utc_offset = config_get_int(config, NULL, "utc_offset");
 	c->time_source = config_get_int(config, NULL, "timeSource");
 	c->step_window = config_get_int(config, NULL, "step_window");
 
@@ -1404,11 +1352,9 @@ struct clock *clock_create(enum clock_type type, struct config *config,
 		c->utc_timescale = 1;
 		clockadj_init(c->clkid);
 		max_adj = sysclk_max_freq();
-		sysclk_set_leap(0);
+		sysclk_set_tai_offset(CURRENT_UTC_OFFSET);
 	}
-	c->utc_offset_set = 0;
-	c->leap_set = 0;
-	c->time_flags = c->utc_timescale ? 0 : PTP_TIMESCALE;
+	c->time_flags = c->utc_timescale ? 0 : (PTP_TIMESCALE | UTC_OFF_VALID);
 
 	if (c->clkid != CLOCK_INVALID) {
 		fadj = clockadj_get_freq(c->clkid);
@@ -2145,9 +2091,7 @@ enum servo_state clock_synchronize(struct clock *c, tmv_t ingress, tmv_t origin)
 		}
 	}
 
-	if (clock_utc_correct(c, ingress)) {
-		return c->servo_state;
-	}
+	clock_utc_correct(c);
 
 	c->cur.offsetFromMaster = tmv_to_TimeInterval(c->master_offset);
 
@@ -2251,39 +2195,6 @@ void clock_sync_interval(struct clock *c, int n)
 	servo_sync_interval(c->servo, n < 0 ? 1.0 / (1 << -n) : 1 << n);
 }
 
-void clock_update_leap_status(struct clock *c)
-{
-	struct timespec ts;
-	int leap;
-
-	if (c->tds.flags & LEAP_61) {
-		leap = 1;
-	} else if (c->tds.flags & LEAP_59) {
-		leap = -1;
-	} else {
-		leap = 0;
-	}
-
-	/* Don't do anything if not a grandmaster with a leap flag set. */
-	if (c->cur.stepsRemoved > 0 || leap == 0) {
-		return;
-	}
-
-	clock_gettime(c->clkid, &ts);
-	if (c->time_flags & PTP_TIMESCALE) {
-		ts.tv_sec -= c->utc_offset;
-	}
-
-	/* Wait until the leap second has passed. */
-	if (leap_second_status(tmv_to_nanoseconds(timespec_to_tmv(ts)),
-			       leap, &leap, &c->utc_offset)) {
-		return;
-	}
-
-	c->time_flags &= ~(LEAP_61 | LEAP_59);
-	clock_update_grandmaster(c);
-}
-
 struct timePropertiesDS clock_time_properties(struct clock *c)
 {
 	struct timePropertiesDS tds = c->tds;
@@ -2304,16 +2215,19 @@ struct timePropertiesDS clock_time_properties(struct clock *c)
 
 void clock_update_time_properties(struct clock *c, struct timePropertiesDS tds)
 {
-	if ((tds.flags ^ c->tds.flags) & (LEAP_61 | LEAP_59)) {
-		pr_info("updating time properties to %s leap second",
-			tds.flags & (LEAP_61 | LEAP_59) ?
-			(tds.flags & LEAP_61 ? "insert" : "delete") : "no");
+	if (tds.flags & (LEAP_61 | LEAP_59)) {
+		pl_warning(600, "suppressing leap second");
+		tds.flags &= ~(LEAP_61 | LEAP_59);
 	}
-	if ((tds.flags & UTC_OFF_VALID && tds.flags & TIME_TRACEABLE &&
-	     tds.currentUtcOffset != c->utc_offset) ||
-	    tds.currentUtcOffset > c->utc_offset) {
-		pr_info("updating UTC offset to %d", tds.currentUtcOffset);
-		c->utc_offset = tds.currentUtcOffset;
+	if (tds.flags & PTP_TIMESCALE) {
+		if (tds.currentUtcOffset != CURRENT_UTC_OFFSET) {
+			pl_warning(600, "overriding currentUtcOffset");
+			tds.currentUtcOffset = CURRENT_UTC_OFFSET;
+		}
+		if (!(tds.flags & UTC_OFF_VALID)) {
+			pl_warning(600, "adding currentUtcOffsetValid flag");
+			tds.flags |= UTC_OFF_VALID;
+		}
 	}
 
 	c->tds = tds;
