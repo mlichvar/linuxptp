@@ -29,7 +29,6 @@
 
 #define NS_PER_SEC 1000000000LL
 
-static int realtime_leap_bit;
 /* The hz and tick apply to all system clocks (not only CLOCK_REALTIME). */
 static long realtime_hz;
 static long realtime_nominal_tick;
@@ -182,32 +181,6 @@ int clockadj_compare(clockid_t clkid, clockid_t sysclk, int readings,
 	return 0;
 }
 
-void sysclk_set_leap(int leap)
-{
-	clockid_t clkid = CLOCK_REALTIME;
-	struct timex tx;
-	const char *m = NULL;
-	memset(&tx, 0, sizeof(tx));
-	tx.modes = ADJ_STATUS;
-	switch (leap) {
-	case -1:
-		tx.status = STA_DEL;
-		m = "clock set to delete leap second at midnight (UTC)";
-		break;
-	case 1:
-		tx.status = STA_INS;
-		m = "clock set to insert leap second at midnight (UTC)";
-		break;
-	default:
-		tx.status = 0;
-	}
-	if (clock_adjtime(clkid, &tx) < 0)
-		pr_err("failed to set the clock status: %m");
-	else if (m)
-		pr_notice("%s", m);
-	realtime_leap_bit = tx.status;
-}
-
 void sysclk_set_tai_offset(int offset)
 {
 	clockid_t clkid = CLOCK_REALTIME;
@@ -233,7 +206,7 @@ void sysclk_set_sync(void)
 	   value (which is increased automatically by 500 ppm) below 16 seconds
 	   to avoid getting the STA_UNSYNC flag back. */
 	tx.modes = ADJ_STATUS | ADJ_MAXERROR;
-	tx.status = realtime_leap_bit;
+	tx.status = 0;
 	if (clock_adjtime(clkid, &tx) < 0)
 		pr_err("failed to set clock status and maximum error: %m");
 }

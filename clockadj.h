@@ -91,13 +91,6 @@ int clockadj_compare(clockid_t clkid, clockid_t sysclk, int readings,
 		     int64_t *offset, uint64_t *ts, int64_t *delay);
 
 /**
- * Set CLOCK_REALTIME to insert/delete leap second at midnight.
- * @param leap  +1 to insert leap second, -1 to delete leap second,
- *              0 to reset the leap state.
- */
-void sysclk_set_leap(int leap);
-
-/**
  * Set the TAI offset of CLOCK_REALTIME to have correct CLOCK_TAI.
  * @param offset The TAI-UTC offset in seconds.
  */
