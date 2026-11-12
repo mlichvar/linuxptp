@@ -12,7 +12,6 @@
 #include <unistd.h>
 
 #include "config.h"
-#include "lstab.h"
 #include "missing.h"
 #include "nmea.h"
 #include "print.h"
@@ -29,7 +28,6 @@
 struct ts2phc_nmea_pps_source {
 	struct ts2phc_pps_source pps_source;
 	struct config *config;
-	struct lstab *lstab;
 	pthread_t worker;
 	/* Protects anonymous struct fields, below, from concurrent access. */
 	pthread_mutex_t mutex;
@@ -145,7 +143,6 @@ static void ts2phc_nmea_pps_source_destroy(struct ts2phc_pps_source *src)
 		container_of(src, struct ts2phc_nmea_pps_source, pps_source);
 	pthread_join(s->worker, NULL);
 	pthread_mutex_destroy(&s->mutex);
-	lstab_destroy(s->lstab);
 	free(s);
 }
 
@@ -155,10 +152,7 @@ static int ts2phc_nmea_pps_source_getppstime(struct ts2phc_pps_source *src,
 	struct ts2phc_nmea_pps_source *m =
 		container_of(src, struct ts2phc_nmea_pps_source, pps_source);
 	tmv_t delay_t1, delay_t2, duration_since_rmc, local_t1, local_t2, rmc;
-	int lstab_error = -1, tai_offset = 0;
-	enum lstab_result result;
 	struct timespec now;
-	int64_t utc_time;
 	bool fix_valid;
 
 	clock_gettime(CLOCK_MONOTONIC_RAW, &now);
@@ -188,48 +182,22 @@ static int ts2phc_nmea_pps_source_getppstime(struct ts2phc_pps_source *src,
 		return -1;
 	}
 
-	utc_time = tmv_to_nanoseconds(rmc);
-	utc_time /= (int64_t) 1000000000;
-
-	result = lstab_utc2tai(m->lstab, utc_time, &tai_offset);
-	switch (result) {
-	case LSTAB_OK:
-		lstab_error = 0;
-		break;
-	case LSTAB_UNKNOWN:
-		pr_err("nmea: unable to find utc time in leap second table");
-		break;
-	case LSTAB_EXPIRED:
-		pr_err("nmea: utc time is past leap second table expiry date");
-		break;
-	case LSTAB_AMBIGUOUS:
-		pr_err("nmea: utc time stamp is ambiguous");
-		break;
-	}
-
 	rmc = tmv_add(rmc, duration_since_rmc);
 	rmc = tmv_add(rmc, m->delay_correction);
 	*ts = tmv_to_timespec(rmc);
-	ts->tv_sec += tai_offset;
+	ts->tv_sec += CURRENT_UTC_OFFSET;
 
-	return lstab_error;
+	return 0;
 }
 
 struct ts2phc_pps_source *ts2phc_nmea_pps_source_create(struct ts2phc_private *priv,
 							const char *dev)
 {
 	struct ts2phc_nmea_pps_source *s;
-	const char* leapfile;
 	int err;
 
 	s = calloc(1, sizeof(*s));
 	if (!s) {
-		return NULL;
-	}
-	leapfile = config_get_string(priv->cfg, NULL, "leapfile");
-	s->lstab = lstab_create(leapfile);
-	if (!s->lstab) {
-		free(s);
 		return NULL;
 	}
 
@@ -242,7 +210,6 @@ struct ts2phc_pps_source *ts2phc_nmea_pps_source_create(struct ts2phc_private *p
 	err = pthread_create(&s->worker, NULL, monitor_nmea_status, s);
 	if (err) {
 		pr_err("failed to create worker thread: %s", strerror(err));
-		lstab_destroy(s->lstab);
 		free(s);
 		return NULL;
 	}

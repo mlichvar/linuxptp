@@ -304,7 +304,7 @@ struct config_item config_tab[] = {
 	GLOB_ITEM_INT("initial_delay", 0, 0, INT_MAX),
 	PORT_ITEM_INT("interface_rate_tlv", 0, 0, 1),
 	GLOB_ITEM_INT("kernel_leap", 1, 0, 1), /*ignored*/
-	GLOB_ITEM_STR("leapfile", NULL),
+	GLOB_ITEM_STR("leapfile", NULL), /*ignored*/
 	PORT_ITEM_INT("logAnnounceInterval", 1, INT8_MIN, INT8_MAX),
 	PORT_ITEM_INT("logMinDelayReqInterval", 0, INT8_MIN, INT8_MAX),
 	PORT_ITEM_INT("logMinPdelayReqInterval", 0, INT8_MIN, INT8_MAX),
