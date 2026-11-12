@@ -55,13 +55,6 @@ void pmc_agent_destroy(struct pmc_agent *agent);
 void pmc_agent_disable(struct pmc_agent *agent);
 
 /**
- * Gets the current leap adjustment.
- * @param agent  Pointer to a PMC instance obtained via @ref pmc_agent_create().
- * @return       The leap adjustment in seconds, either 1, 0, or -1.
- */
-int pmc_agent_get_leap(struct pmc_agent *agent);
-
-/**
  * Gets the number of local ports from the default data set.  Users
  * should first call pmc_agent_query_dds() before invoking this
  * function.
@@ -114,8 +107,7 @@ int pmc_agent_query_port_properties(struct pmc_agent *agent, int timeout,
 				    char *iface);
 
 /**
- * Queries the TAI-UTC offset and the current leap adjustment from the
- * ptp4l service.
+ * Queries the TAI-UTC offset from the ptp4l service.
  *
  * In addition:
  *
@@ -150,14 +142,13 @@ int pmc_agent_subscribe(struct pmc_agent *agent, int timeout, int interval);
  *
  * In addition:
  *
- * - Queries the local ptp4l instance to update the TAI-UTC offset and
- *   the current leap second flags.
+ * - Queries the local ptp4l instance to update the TAI-UTC offset.
  * - Any active port state subscription will be renewed.
  * - The port state notification callback might be invoked.
  *
  * This function should be called periodically at least once per
- * minute to keep both the port state and the leap second flags up to
- * date.  Note that the PMC agent rate limits the query to once per
+ * minute to keep the port state up to date.
+ * Note that the PMC agent rate limits the query to once per
  * minute, and so the caller may safely invoke this method more often
  * than that.
  *
@@ -173,12 +164,5 @@ int pmc_agent_update(struct pmc_agent *agent);
  * @return       True if subscribed, false otherwise.
  */
 int pmc_agent_is_subscribed(struct pmc_agent *agent);
-
-/**
- * Tests whether the current UTC offset is traceable.
- * @param agent  Pointer to a PMC instance obtained via @ref pmc_agent_create().
- * @return       True is the offset is traceable, false otherwise.
- */
-bool pmc_agent_utc_offset_traceable(struct pmc_agent *agent);
 
 #endif

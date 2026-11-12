@@ -44,11 +44,9 @@ struct pmc_agent {
 
 	struct defaultDS dds;
 	bool dds_valid;
-	int leap;
 	int pmc_ds_requested;
 	bool stay_subscribed;
 	int sync_offset;
-	int utc_offset_traceable;
 
 	/* Callback on message reception */
 	pmc_node_recv_subscribed_t *recv_subscribed;
@@ -295,11 +293,6 @@ void pmc_agent_disable(struct pmc_agent *agent)
 	agent->pmc = NULL;
 }
 
-int pmc_agent_get_leap(struct pmc_agent *agent)
-{
-	return agent->leap;
-}
-
 int pmc_agent_get_sync_offset(struct pmc_agent *agent)
 {
 	return agent->sync_offset;
@@ -399,18 +392,8 @@ int pmc_agent_query_utc_offset(struct pmc_agent *node, int timeout)
 	tds = (struct timePropertiesDS *) management_tlv_data(msg);
 	if (tds->flags & PTP_TIMESCALE) {
 		node->sync_offset = tds->currentUtcOffset;
-		if (tds->flags & LEAP_61)
-			node->leap = 1;
-		else if (tds->flags & LEAP_59)
-			node->leap = -1;
-		else
-			node->leap = 0;
-		node->utc_offset_traceable = tds->flags & UTC_OFF_VALID &&
-					     tds->flags & TIME_TRACEABLE;
 	} else {
 		node->sync_offset = 0;
-		node->leap = 0;
-		node->utc_offset_traceable = 0;
 	}
 	msg_put(msg);
 	return 0;
@@ -484,9 +467,4 @@ int pmc_agent_is_subscribed(struct pmc_agent *agent)
 	return agent->pmc_last_update > 0 &&
 		ts - agent->pmc_last_update <= UPDATES_PER_SUBSCRIPTION *
 					       agent->update_interval;
-}
-
-bool pmc_agent_utc_offset_traceable(struct pmc_agent *agent)
-{
-	return agent->utc_offset_traceable;
 }
