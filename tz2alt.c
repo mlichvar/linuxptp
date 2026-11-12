@@ -12,7 +12,6 @@
 #include <unistd.h>
 
 #include "config.h"
-#include "lstab.h"
 #include "pmc_common.h"
 #include "print.h"
 #include "sad.h"
@@ -25,7 +24,6 @@
 
 static int key_field, period = DEFAULT_PERIOD, window = DEFAULT_WINDOW;
 static char uds_local[MAX_IFNAME_SIZE + 1];
-static struct lstab *lstab;
 static struct config *cfg;
 
 struct tzinfo {
@@ -37,8 +35,6 @@ struct tzinfo {
 
 	time_t			local_utc_offset;
 	time_t			local_tai_offset;
-	int			tai_utc_offset;
-	enum lstab_result	tai_result;
 };
 
 static int get_offsets(struct tzinfo *tz);
@@ -91,13 +87,6 @@ static int get_offsets(struct tzinfo *tz)
 	struct tm tm = {0};
 	time_t t2;
 
-	tz->tai_result = lstab_utc2tai(lstab, tz->timestamp,
-				       &tz->tai_utc_offset);
-	if (tz->tai_result == LSTAB_UNKNOWN) {
-		pr_err("leap second table is stale");
-		return -1;
-	}
-
 	setenv("TZ", tz->name, 1);
 	tzset();
 	if (!localtime_r(&tz->timestamp, &tm)) {
@@ -108,33 +97,25 @@ static int get_offsets(struct tzinfo *tz)
 	tzset();
 	t2 = mktime(&tm);
 	tz->local_utc_offset = t2 - tz->timestamp;
-	tz->local_tai_offset = tz->local_utc_offset - tz->tai_utc_offset;
+	tz->local_tai_offset = tz->local_utc_offset - CURRENT_UTC_OFFSET;
 
 	return 0;
 }
 
 static int get_unambiguous_time(struct tzinfo *tz)
 {
-	int err;
-
-	do {
-		tz->timestamp = time(NULL);
-		err = get_offsets(tz);
-	} while (tz->tai_result == LSTAB_AMBIGUOUS);
-
-	return err;
+	tz->timestamp = time(NULL);
+	return get_offsets(tz);
 }
 
 static void show_timezone_info(const char *label, struct tzinfo *tz)
 {
-	pr_debug("%s %s ts %jd local-utc %jd tai-utc %d local-tai %jd %s",
+	pr_debug("%s %s ts %jd local-utc %jd local-tai %jd",
 		 label,
 		 tz->name,
 		 (intmax_t)tz->timestamp,
 		 (intmax_t)tz->local_utc_offset,
-		 tz->tai_utc_offset,
-		 (intmax_t)tz->local_tai_offset,
-		 tz->tai_result == LSTAB_OK ? "valid" : "invalid");
+		 (intmax_t)tz->local_tai_offset);
 }
 
 /* Returns true if display name was truncated. */
@@ -223,7 +204,6 @@ static int update_ptp_serivce(struct tzinfo *tz, struct tzinfo *next)
 static int do_tztool(const char *timezone)
 {
 	struct tzinfo nx, tz;
-	const char *leapfile;
 	bool pending;
 	char buf[64];
 	int err;
@@ -240,21 +220,7 @@ static int do_tztool(const char *timezone)
 			tz.name, tz.display_name);
 	}
 
-	leapfile = config_get_string(cfg, NULL, "leapfile");
-	if (!leapfile) {
-		pr_err("please specify leap second table with --leapfile");
-		return -1;
-	}
-
 	while (is_running()) {
-
-		/* Read the leap seconds file again as it may have changed. */
-		lstab = lstab_create(leapfile);
-		if (!lstab) {
-			pr_err("failed to create leap second table");
-			return -1;
-		}
-
 		err = get_unambiguous_time(&tz);
 		if (err) {
 			return err;
@@ -273,9 +239,6 @@ static int do_tztool(const char *timezone)
 		} else {
 			pr_info("no discontinuity within %d second window", window);
 		}
-
-		lstab_destroy(lstab);
-		lstab = NULL;
 
 		err = update_ptp_serivce(&tz, pending ? &nx : NULL);
 		if (err) {
