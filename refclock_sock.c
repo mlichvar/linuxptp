@@ -28,8 +28,6 @@
 #include "servo_private.h"
 
 #define LEAP_NORMAL 0
-#define LEAP_INSERT 1
-#define LEAP_DELETE 2
 #define SOCK_MAGIC 0x534f434b
 
 /* Copied from chrony-3.2/refclock_sock.c */
@@ -57,7 +55,6 @@ struct sock_sample {
 struct sock_servo {
 	struct servo servo;
 	int sock_fd;
-	int leap;
 };
 
 static void refclock_sock_destroy(struct servo *servo)
@@ -80,17 +77,7 @@ static double refclock_sock_sample(struct servo *servo,
 	sample.tv.tv_usec = local_ts % 1000000000ULL / 1000U;
 	sample.offset = -offset / 1e9;
 	sample.magic = SOCK_MAGIC;
-
-	switch (s->leap) {
-	case -1:
-		sample.leap = LEAP_DELETE;
-		break;
-	case 1:
-		sample.leap = LEAP_INSERT;
-		break;
-	default:
-		sample.leap = LEAP_NORMAL;
-	}
+	sample.leap = LEAP_NORMAL;
 
 	if (send(s->sock_fd, &sample, sizeof sample, 0) != sizeof sample) {
 		pr_err("refclock_sock: send failed: %m");
@@ -109,13 +96,6 @@ static void refclock_sock_reset(struct servo *servo)
 {
 }
 
-static void refclock_sock_leap(struct servo *servo, int leap)
-{
-	struct sock_servo *s = container_of(servo, struct sock_servo, servo);
-
-	s->leap = leap;
-}
-
 struct servo *refclock_sock_servo_create(struct config *cfg)
 {
 	char *addr = config_get_string(cfg, NULL, "refclock_sock_address");
@@ -131,7 +111,6 @@ struct servo *refclock_sock_servo_create(struct config *cfg)
 	s->servo.sample = refclock_sock_sample;
 	s->servo.sync_interval = refclock_sock_sync_interval;
 	s->servo.reset = refclock_sock_reset;
-	s->servo.leap = refclock_sock_leap;
 
 	s->sock_fd = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (s->sock_fd < 0) {

@@ -126,14 +126,6 @@ void servo_reset(struct servo *servo);
 double servo_rate_ratio(struct servo *servo);
 
 /**
- * Inform a clock servo about upcoming leap second.
- * @param servo   Pointer to a servo obtained via @ref servo_create().
- * @param leap    +1 when leap second will be inserted, -1 when leap second
- *                will be deleted, 0 when it passed.
- */
-void servo_leap(struct servo *servo, int leap);
-
-/**
  * Get the offset threshold for triggering the interval change request.
  * @param servo   Pointer to a servo obtained via @ref servo_create().
  * @return        The offset threshold set by the user.

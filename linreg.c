@@ -79,8 +79,6 @@ struct linreg_servo {
 	double update_interval;
 	/* Current ratio between remote and local frequency */
 	double frequency_ratio;
-	/* Upcoming leap second */
-	int leap;
 };
 
 static void linreg_destroy(struct servo *servo)
@@ -316,20 +314,6 @@ static double linreg_rate_ratio(struct servo *servo)
 	return s->frequency_ratio;
 }
 
-static void linreg_leap(struct servo *servo, int leap)
-{
-	struct linreg_servo *s = container_of(servo, struct linreg_servo, servo);
-
-	/*
-	 * Move reference when leap second is applied to the reference
-	 * time as if the clock was stepped in the opposite direction
-	 */
-	if (s->leap && !leap)
-		move_reference(s, 0, s->leap * 1000000000);
-
-	s->leap = leap;
-}
-
 struct servo *linreg_servo_create(double fadj)
 {
 	struct linreg_servo *s;
@@ -343,7 +327,6 @@ struct servo *linreg_servo_create(double fadj)
 	s->servo.sync_interval = linreg_sync_interval;
 	s->servo.reset = linreg_reset;
 	s->servo.rate_ratio = linreg_rate_ratio;
-	s->servo.leap = linreg_leap;
 
 	s->clock_freq = -fadj;
 	s->frequency_ratio = 1.0;
